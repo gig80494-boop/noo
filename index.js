@@ -11,7 +11,8 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  AuditLogEvent
+  ButtonBuilder,
+  ButtonStyle
 } = require('discord.js');
 
 if (!process.env.DISCORD_TOKEN) {
@@ -24,44 +25,30 @@ const client = new Client({
     GatewayIntentBits.GuildBans,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildMembers // مطلوب لجلب الأعضاء والتأكد من الرتب بشكل صحيح
+    GatewayIntentBits.GuildVoiceStates
   ]
 });
 
-// ==================== إدارة الصلاحيات ====================
-const permissionsFile = path.join(__dirname, 'permissions.json');
-const defaultAdmins = [
+// الحسابات المسموح لها باستخدام لوحة القوائم التفاعلية (تم إزالة المعرف المطلوب)
+const PANEL_ALLOWED_USERS = [
   '1496923040985124905',
   '1518574556787249177',
+  '1422526730035396659'
+];
+
+const ALLOWED_USERS = [
+  '1518574556787249177',
+  '1496923040985124905',
   '1422526730035396659',
   '1323373154919252108'
 ];
 
-let permissions = {
-  panelAllowed: [...defaultAdmins],
-  allowedUsers: [...defaultAdmins],
-  kickVoiceAllowed: [...defaultAdmins]
-};
-
-try {
-  if (fs.existsSync(permissionsFile)) {
-    const data = JSON.parse(fs.readFileSync(permissionsFile, 'utf8'));
-    permissions = { ...permissions, ...data };
-  } else {
-    fs.writeFileSync(permissionsFile, JSON.stringify(permissions, null, 2), 'utf8');
-  }
-} catch (error) {
-  console.error('تعذر تحميل ملف الصلاحيات:', error);
-}
-
-function savePermissions() {
-  try {
-    fs.writeFileSync(permissionsFile, JSON.stringify(permissions, null, 2), 'utf8');
-  } catch (error) {
-    console.error('تعذر حفظ الصلاحيات:', error);
-  }
-}
+const KICKVOICE_ALLOWED_USERS = [
+  '1518574556787249177',
+  '1496923040985124905',
+  '1422526730035396659',
+  '1323373154919252108'
+];
 
 function getBanReason(executorId) {
   if (executorId === '1518574556787249177') return 'lbnani say no';
@@ -70,7 +57,7 @@ function getBanReason(executorId) {
   return 'نظام حماية No-Back';
 }
 
-// ==================== بيانات Black Voice ====================
+// ملفات حفظ البيانات
 const voiceBlockFile = path.join(__dirname, 'voiceblock.json');
 let voiceBlockList = new Set();
 
@@ -89,11 +76,9 @@ function saveVoiceBlockData() {
   fs.writeFileSync(voiceBlockFile, JSON.stringify([...voiceBlockList], null, 2), 'utf8');
 }
 
-// ==================== بيانات No-Back ====================
 const dataFile = path.join(__dirname, 'noback.json');
 let noBackList = new Map();
 let isNoBackEnabled = true;
-const unbanViolations = new Map(); // خريطة لتتبع عدد مخالفات الإداريين { userId: count }
 
 try {
   if (fs.existsSync(dataFile)) {
@@ -112,56 +97,33 @@ function saveData() {
 }
 
 function isAllowed(message) {
-  return permissions.allowedUsers.includes(message.author.id) || message.member?.permissions.has(PermissionsBitField.Flags.Administrator);
+  return ALLOWED_USERS.includes(message.author.id) || message.member?.permissions.has(PermissionsBitField.Flags.Administrator);
 }
 
 function isKickVoiceAllowed(message) {
-  return permissions.kickVoiceAllowed.includes(message.author.id);
-}
-
-// دالة تقطيع الرسائل الطويلة لتفادي خطأ 2000 حرف في ديسكورد
-async function sendLongMessage(destination, contentPrefix, items) {
-  let messageText = contentPrefix + '\n';
-  for (const item of items) {
-    if ((messageText + item + '\n').length > 1900) {
-      if (destination.replied || destination.deferred) {
-        await destination.followUp({ content: messageText });
-      } else {
-        await destination.reply({ content: messageText });
-      }
-      messageText = '';
-    }
-    messageText += item + '\n';
-  }
-  if (messageText.length > 0) {
-    if (destination.replied || destination.deferred) {
-      await destination.followUp({ content: messageText });
-    } else {
-      await destination.reply({ content: messageText });
-    }
-  }
+  return KICKVOICE_ALLOWED_USERS.includes(message.author.id);
 }
 
 client.once('ready', () => {
   console.log(`✅ تم تشغيل البوت باسم: ${client.user.tag}`);
 });
 
-// ==================== التعامل مع الأوامر الكتابية ====================
+// التعامل مع الرسائل والأوامر الكتابية
 client.on('messageCreate', async message => {
   if (message.author.bot || !message.guild) return;
 
   const args = message.content.trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
 
-  // أمر استدعاء لوحة القوائم التفاعلية
+  // أمر استدعاء لوحة القوائم التفاعلية بدون الحاجة لكتابة أوامر أخرى
   if (command === '!panel' || command === '!menu') {
-    if (!permissions.panelAllowed.includes(message.author.id)) {
+    if (!PANEL_ALLOWED_USERS.includes(message.author.id)) {
       return message.reply(':x: ليس لديك صلاحية لاستخدام لوحة القوائم.');
     }
 
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId('panel_select')
-      .setPlaceholder('اختر الإجراء المطلوب من القائمة...')
+      .setPlaceholder('اختر الإجراء المطلـوب من القائمة...')
       .addOptions([
         { label: 'إضافة شخص إلى Black Voice (منع الفويس)', value: 'action_bv_add', emoji: '🎙️' },
         { label: 'إزالة شخص من Black Voice', value: 'action_bv_remove', emoji: '🔊' },
@@ -180,7 +142,7 @@ client.on('messageCreate', async message => {
     });
   }
 
-  // أوامر Black Voice
+  // الأوامر الكتابية العادية المباشرة
   if (command === '!blackvoice' || command === '!bv') {
     if (!isKickVoiceAllowed(message)) return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
     const userId = args[1]?.replace(/[<@!>]/g, '');
@@ -215,32 +177,31 @@ client.on('messageCreate', async message => {
   if (command === '!bvlist') {
     if (!isKickVoiceAllowed(message)) return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
     if (voiceBlockList.size === 0) return message.reply('📋 قائمة الممنوعين من الفويس فارغة حالياً.');
-    const items = [...voiceBlockList].map(id => `- <@${id}> (${id})`);
-    return sendLongMessage(message, `📋 **قائمة الممنوعين من الفويس (${voiceBlockList.size}):**`, items);
+    const list = [...voiceBlockList].map(id => `- <@${id}> (${id})`).join('\n');
+    return message.reply(`📋 **قائمة الممنوعين من الفويس (${voiceBlockList.size}):**\n${list}`);
   }
 
-  // أوامر No-Back
   if (command === '!noback') {
     if (!isAllowed(message)) return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
     const action = args[1]?.toLowerCase();
 
     if (action === 'list') {
       if (noBackList.size === 0) return message.reply(':clipboard: قائمة No-Back فارغة حالياً.');
-      const items = [...noBackList.keys()].map(id => `- <@${id}> (${id})`);
-      return sendLongMessage(message, `📋 **قائمة المحظورين No-Back (${noBackList.size}):**`, items);
+      const list = [...noBackList.keys()].map(id => `- <@${id}> (${id})`).join('\n');
+      return message.reply(`📋 **قائمة المحظورين No-Back (${noBackList.size}):**\n${list}`);
     }
 
     if (action === 'remove') {
-      const userId = args[2]?.replace(/[<@!>]/g, '');
+      const userId = args[2];
       if (!/^\d+$/.test(userId || '')) return message.reply(':warning: يرجى كتابة الـ ID الصحيح.');
-      if (!noBackList.has(userId)) return message.reply(':warning: غلطان يالاخو، الشخص ليس بالكلية في القائمة.');
+      if (!noBackList.has(userId)) return message.reply(':warning: غلطان يالاخو.');
 
       noBackList.delete(userId);
       saveData();
       return message.reply(`✅ تم إزالة <@${userId}> انفك الـ No-Back.`);
     }
 
-    const userId = args[1]?.replace(/[<@!>]/g, '');
+    const userId = args[1];
     if (!/^\d+$/.test(userId || '')) return message.reply(':warning: يرجى كتابة الـ ID الصحيح للطرف المستهدف.');
 
     const executorId = message.author.id;
@@ -274,15 +235,13 @@ client.on('messageCreate', async message => {
   }
 });
 
-// ==================== التعامل مع التفاعلات والقوائم ====================
+// التعامل مع اختيارات القائمة المنسدلة والرموز المنبثقة (Interaction handling)
 client.on('interactionCreate', async interaction => {
-  if (!permissions.panelAllowed.includes(interaction.user.id)) {
-    if (interaction.isRepliable()) {
-      return interaction.reply({ content: ':x: ليس لديك صلاحية لاستخدام لوحة القوائم.', ephemeral: true });
-    }
-    return;
+  if (!PANEL_ALLOWED_USERS.includes(interaction.user.id)) {
+    return interaction.reply({ content: ':x: ليس لديك صلاحية لاستخدام لوحة القوائم.', ephemeral: true });
   }
 
+  // التفاعل مع القائمة المنسدلة
   if (interaction.isStringSelectMenu() && interaction.customId === 'panel_select') {
     const selected = interaction.values[0];
 
@@ -302,8 +261,8 @@ client.on('interactionCreate', async interaction => {
 
     if (selected === 'action_bv_list') {
       if (voiceBlockList.size === 0) return interaction.reply({ content: '📋 قائمة الممنوعين من الفويس فارغة حالياً.', ephemeral: true });
-      const items = [...voiceBlockList].map(id => `- <@${id}> (${id})`);
-      return sendLongMessage(interaction, `📋 **قائمة الممنوعين من الفويس (${voiceBlockList.size}):**`, items);
+      const list = [...voiceBlockList].map(id => `- <@${id}> (${id})`).join('\n');
+      return interaction.reply({ content: `📋 **قائمة الممنوعين من الفويس (${voiceBlockList.size}):**\n${list}`, ephemeral: true });
     }
 
     if (selected === 'action_noback_add') {
@@ -322,8 +281,8 @@ client.on('interactionCreate', async interaction => {
 
     if (selected === 'action_noback_list') {
       if (noBackList.size === 0) return interaction.reply({ content: ':clipboard: قائمة No-Back فارغة حالياً.', ephemeral: true });
-      const items = [...noBackList.keys()].map(id => `- <@${id}> (${id})`);
-      return sendLongMessage(interaction, `📋 **قائمة المحظورين No-Back (${noBackList.size}):**`, items);
+      const list = [...noBackList.keys()].map(id => `- <@${id}> (${id})`).join('\n');
+      return interaction.reply({ content: `📋 **قائمة المحظورين No-Back (${noBackList.size}):**\n${list}`, ephemeral: true });
     }
 
     if (selected === 'action_noback_toggle') {
@@ -333,6 +292,7 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
+  // التفاعل مع الخانات المنبثقة (Modals)
   if (interaction.isModalSubmit()) {
     const rawInput = interaction.fields.getTextInputValue('target_id');
     const userId = rawInput?.replace(/[<@!>]/g, '');
@@ -365,7 +325,6 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (interaction.customId === 'modal_noback_add') {
-      await interaction.deferReply();
       const executorId = interaction.user.id;
       const banReason = getBanReason(executorId);
 
@@ -374,9 +333,9 @@ client.on('interactionCreate', async interaction => {
 
       try {
         await interaction.guild.members.ban(userId, { reason: banReason });
-        return interaction.editReply({ content: `✅ <@${userId}> تم شقه بنجاح.\n📝 السبب: \`${banReason}\`` });
+        return interaction.reply({ content: `✅ <@${userId}> تم شقه بنجاح.\n📝 السبب: \`${banReason}\`` });
       } catch (error) {
-        return interaction.editReply({ content: `✅ تم إضافة <@${userId}> للقائمة، لكن تعذر تبنيده فوراً.` });
+        return interaction.reply({ content: `✅ تم إضافة <@${userId}> للقائمة، لكن تعذر تبنيده فوراً.` });
       }
     }
 
@@ -389,7 +348,7 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// ==================== أحداث الصوت وفك الحظر تلقائياً ====================
+// طرد الشخص تلقائياً عند محاولته دخول روم صوتي
 client.on('voiceStateUpdate', async (oldState, newState) => {
   if (newState.channelId && voiceBlockList.has(newState.id)) {
     try {
@@ -401,77 +360,19 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
+// إعادة الحظر التلقائي بنفس السبب المخزن
 client.on('guildBanRemove', async ban => {
   if (!isNoBackEnabled || !noBackList.has(ban.user.id)) return;
 
-  const originalExecutorId = noBackList.get(ban.user.id);
-  const banReason = getBanReason(originalExecutorId);
+  const executorId = noBackList.get(ban.user.id);
+  const banReason = getBanReason(executorId);
 
-  // 1. إعادة حظر الشخص المحمي بنظام No-Back تلقائياً
   try {
     await ban.guild.bans.create(ban.user.id, {
       reason: `حظر دائم - ${banReason}`
     });
   } catch (error) {
     console.error('[No-Back] يتعذر إعادة الحظر:', error);
-  }
-
-  // 2. الانتظار قليلاً لضمان تسجيل الحدث في الـ Audit Log
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  try {
-    const fetchedLogs = await ban.guild.fetchAuditLogs({
-      limit: 1,
-      type: AuditLogEvent.MemberBanRemove
-    });
-    const banLog = fetchedLogs.entries.first();
-
-    if (banLog && banLog.target.id === ban.user.id) {
-      const adminUser = banLog.executor;
-      if (!adminUser || adminUser.id === client.user.id) return; // العبور إذا كان البوت نفسه هو من فك الحظر
-
-      if (adminUser.id === ban.guild.ownerId) {
-        console.log(`⚠️ الشخص الذي فك الحظر هو أونر السيرفر (${adminUser.tag})، لا يمكن تبنيده برمجياً.`);
-        return;
-      }
-
-      const adminMember = await ban.guild.members.fetch(adminUser.id).catch(() => null);
-      const botMember = await ban.guild.members.fetch(client.user.id).catch(() => null);
-
-      const isHigherThanBot = adminMember && botMember && adminMember.roles.highest.position >= botMember.roles.highest.position;
-
-      if (isHigherThanBot) {
-        console.log(`⚠️ العضو/الستريمر ${adminUser.tag} يملك رتبة مساوية أو أرفع من رتبة البوت، يرجى رفع رتبة البوت فوقه لتطبيق الباند.`);
-        return;
-      }
-
-      // تسجيل المخالفة
-      const currentViolations = (unbanViolations.get(adminUser.id) || 0) + 1;
-      unbanViolations.set(adminUser.id, currentViolations);
-
-      console.log(`⚠️ العضو/الستريمر ${adminUser.tag} (${adminUser.id}) فك حظر شخص عليه No-Back. المخالفة رقم: ${currentViolations}`);
-
-      // إذا تجاوز الحد (مرتين أو أكثر)
-      if (currentViolations >= 2) {
-        // تجريد الشخص وتصفيره من صلاحيات البوت وحفظ التعديلات في الملف
-        permissions.panelAllowed = permissions.panelAllowed.filter(id => id !== adminUser.id);
-        permissions.allowedUsers = permissions.allowedUsers.filter(id => id !== adminUser.id);
-        permissions.kickVoiceAllowed = permissions.kickVoiceAllowed.filter(id => id !== adminUser.id);
-        savePermissions();
-
-        // تبنيده من السيرفر فوراً
-        try {
-          await ban.guild.members.ban(adminUser.id, {
-            reason: `تجاوز الحد المسموح: فك حظر شخص بنظام No-Back مرتين أو أكثر.`
-          });
-          console.log(`🚨 تم تبنيد العضو/الستريمر ${adminUser.tag} لتجاوزه حد فك الحظر (مرتين) وتصفيره بالكامل.`);
-        } catch (banError) {
-          console.error(`❌ تعذر تبنيد العضو ${adminUser.tag}:`, banError);
-        }
-      }
-    }
-  } catch (err) {
-    console.error('تعذر جلب سجلات Audit Logs لمعرفة الشخص المسؤول:', err);
   }
 });
 
