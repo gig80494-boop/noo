@@ -131,6 +131,25 @@ client.on('messageCreate', async message => {
   const args = message.content.trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
 
+  // عرض قائمة الأوامر
+  if (command === '!menu') {
+    return message.reply(
+      `📋 **قائمة الأوامر**
+
+**أوامر النوباك:**
+\`!noback <ID>\` — إضافة شخص إلى النوباك
+\`!noback remove <ID>\` — فك النوباك
+\`!noback list\` — عرض قائمة النوباك
+\`!noback_protection on\` — تشغيل الحماية
+\`!noback_protection off\` — إيقاف الحماية
+
+**أوامر الفويس:**
+\`!kickvoice <ID>\` أو \`!kv <ID>\` — منع الشخص من دخول الفويس
+\`!unkickvoice <ID>\` أو \`!unkv <ID>\` — إزالة المنع
+\`!kvlist\` — عرض قائمة الممنوعين من الفويس`
+    );
+  }
+
   // منع شخص من دخول الرومات الصوتية
   if (command === '!kickvoice' || command === '!kv') {
     if (!isKickVoiceAllowed(message)) {
