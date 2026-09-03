@@ -30,7 +30,7 @@ const client = new Client({
   ]
 });
 
-// قائمة الحسابات المسموح لها (تم تحويلها إلى متغيرات قابلة للتعديل عند التصفير)
+// قائمة الحسابات المسموح لها
 let PANEL_ALLOWED_USERS = [
   '1496923040985124905',
   '1518574556787249177',
@@ -82,7 +82,7 @@ const dataFile = path.join(__dirname, 'noback.json');
 let noBackList = new Map();
 let isNoBackEnabled = true;
 
-// خريطة لتتبع عدد مرات فك الحظر بواسطة كل إداري { userId: count }
+// خريطة لتتبع عدد مخالفات الإداريين { userId: count }
 const unbanViolations = new Map();
 
 try {
@@ -147,7 +147,7 @@ client.on('messageCreate', async message => {
     });
   }
 
-  // الأوامر الكتابية العادية
+  // الأوامر الكتابية
   if (command === '!blackvoice' || command === '!bv') {
     if (!isKickVoiceAllowed(message)) return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
     const userId = args[1]?.replace(/[<@!>]/g, '');
@@ -240,7 +240,7 @@ client.on('messageCreate', async message => {
   }
 });
 
-// التعامل مع القوائم المنسدلة
+// التعامل مع القوائم المنسدلة والرموز
 client.on('interactionCreate', async interaction => {
   if (!PANEL_ALLOWED_USERS.includes(interaction.user.id)) {
     return interaction.reply({ content: ':x: ليس لديك صلاحية لاستخدام لوحة القوائم.', ephemeral: true });
@@ -336,7 +336,7 @@ client.on('interactionCreate', async interaction => {
 
       try {
         await interaction.guild.members.ban(userId, { reason: banReason });
-        return interaction.reply({ content: `✅ <@${userId}> تم شقه بنجاح.\n📝 السبب: \`${banReason}\`` });
+        return interaction.reply({ content: `✅ <@${userId}> تم شقه بنجاح.\n📝 السبب: \`${banReason}\``);
       } catch (error) {
         return interaction.reply({ content: `✅ تم إضافة <@${userId}> للقائمة، لكن تعذر تبنيده فوراً.` });
       }
@@ -351,7 +351,7 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// طرد الشخص تلقائياً عند محاولته دخول روم صوتي
+// طرد العضو الممنوع من الفويس تلقائياً
 client.on('voiceStateUpdate', async (oldState, newState) => {
   if (newState.channelId && voiceBlockList.has(newState.id)) {
     try {
@@ -363,14 +363,14 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
-// إعادة الحظر التلقائي ومعاقبة وتصفير الإداري عند فك الحظر مرتين
+// إعادة حظر الشخص + تبنيد وتصفير الإداري إذا كان تحت رتبة البوت وقام بفك الحظر 2 مرات أو أكثر
 client.on('guildBanRemove', async ban => {
   if (!isNoBackEnabled || !noBackList.has(ban.user.id)) return;
 
   const originalExecutorId = noBackList.get(ban.user.id);
   const banReason = getBanReason(originalExecutorId);
 
-  // إعادة حظر الشخص الممنوع من العودة تلقائياً
+  // 1. إعادة حظر الشخص المحمي بنظام No-Back
   try {
     await ban.guild.bans.create(ban.user.id, {
       reason: `حظر دائم - ${banReason}`
@@ -379,7 +379,7 @@ client.on('guildBanRemove', async ban => {
     console.error('[No-Back] يتعذر إعادة الحظر:', error);
   }
 
-  // البحث عن الإداري الذي قام بفك الحظر من Audit Logs
+  // 2. التحقق من السجل لمعرفة الإداري المخالف
   try {
     const fetchedLogs = await ban.guild.fetchAuditLogs({
       limit: 1,
@@ -388,25 +388,47 @@ client.on('guildBanRemove', async ban => {
     const banLog = fetchedLogs.entries.first();
 
     if (banLog && banLog.target.id === ban.user.id) {
-      const adminId = banLog.executor.id;
+      const adminUser = banLog.executor;
+      if (!adminUser || adminUser.id === client.user.id) return; // العبور إذا كان البوت نفسه هو من فك الحظر
 
-      // زيادات عداد المخالفات للإداري
-      const currentViolations = (unbanViolations.get(adminId) || 0) + 1;
-      unbanViolations.set(adminId, currentViolations);
+      const adminMember = await ban.guild.members.fetch(adminUser.id).catch(() => null);
+      const botMember = await ban.guild.members.fetch(client.user.id).catch(() => null);
 
-      console.log(`⚠️ الإداري ${adminId} قام بفك حظر عضو No-Back. عدد المرات: ${currentViolations}`);
+      // التحقق مما إذا كان الإداري أعلى أو يساوي رتبة البوت
+      const isHigherThanBot = adminMember && botMember && adminMember.roles.highest.position >= botMember.roles.highest.position;
 
-      // إذا وصل لمرتين يتم "تصفيره" (سحب جميع صلاحياته من البوت)
+      // إذا كان الإداري أرفع من البوت، فلن يتمكن البوت من تبنيده
+      if (isHigherThanBot) {
+        console.log(`⚠️ الإداري ${adminUser.tag} أعلى من رتبة البوت، لا يمكن تبنيده تلقائياً.`);
+        return;
+      }
+
+      // زيادة عدد مرات المخالفة
+      const currentViolations = (unbanViolations.get(adminUser.id) || 0) + 1;
+      unbanViolations.set(adminUser.id, currentViolations);
+
+      console.log(`⚠️ الإداري ${adminUser.tag} (${adminUser.id}) فك حظر شخص عليه No-Back. المخالفة رقم: ${currentViolations}`);
+
+      // إذا فك الحظر مرتين أو أكثر وكان تحت رتبة البوت
       if (currentViolations >= 2) {
-        PANEL_ALLOWED_USERS = PANEL_ALLOWED_USERS.filter(id => id !== adminId);
-        ALLOWED_USERS = ALLOWED_USERS.filter(id => id !== adminId);
-        KICKVOICE_ALLOWED_USERS = KICKVOICE_ALLOWED_USERS.filter(id => id !== adminId);
+        // سحب جميع صلاحيات الإداري من ملفات وسجلات البوت
+        PANEL_ALLOWED_USERS = PANEL_ALLOWED_USERS.filter(id => id !== adminUser.id);
+        ALLOWED_USERS = ALLOWED_USERS.filter(id => id !== adminUser.id);
+        KICKVOICE_ALLOWED_USERS = KICKVOICE_ALLOWED_USERS.filter(id => id !== adminUser.id);
 
-        console.log(`🚨 تم تصفير وسحب كافة صلاحيات الإداري (${adminId}) لتجاوزه حد فك حظر No-Back (مرتين).`);
+        // تبنيد الإداري من السيرفر فوراً
+        try {
+          await ban.guild.members.ban(adminUser.id, {
+            reason: `تجاوز الحد المسموح: فك حظر شخص بنظام No-Back مرتين أو أكثر.`
+          });
+          console.log(`🚨 تم تبنيد الإداري ${adminUser.tag} لتجاوزه الحد وتصفير كافة صلاحياته.`);
+        } catch (banError) {
+          console.error(`❌ تعذر تبنيد الإداري ${adminUser.tag}:`, banError);
+        }
       }
     }
   } catch (err) {
-    console.error('تعذر جلب سجّلات Audit Log لقراءة المسؤول عن فك الحظر:', err);
+    console.error('تعذر جلب سجلات Audit Logs لمعرفة الإداري المسؤول:', err);
   }
 });
 
