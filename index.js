@@ -29,7 +29,7 @@ const ALLOWED_USERS = [
 
 // تحديد سبب الحظر المخصص بناءً على ID الشخص الذي أعطى النوباك
 function getBanReason(executorId) {
-  if (executorId === '1518574556787249177') return '70vm say no';
+  if (executorId === '1518574556787249177') return 'abu say no';
   if (executorId === '1496923040985124905') return 'Abu Khalid say no';
   if (executorId === '1422526730035396659') return 'Saud say no';
   return 'نظام حماية النوباك (No-Back)';
@@ -193,18 +193,19 @@ client.on('messageCreate', async (message) => {
 
 // إعادة الحظر التلقائي بنفس السبب المخزن للآيدي صاحب الأمر
 client.on('guildBanRemove', async (ban) => {
-  if (!isNoBackEnabled || !noBackList.has(ban.user.id)) return;
+    // الخروج إذا كانت الميزة معطلة أو المستخدم ليس ضمن قائمة No-Back
+    if (!isNoBackEnabled || !noBackList.has(ban.user.id)) return;
 
-  const executorId = noBackList.get(ban.user.id);
-  const banReason = getBanReason(executorId);
+    const executorId = noBackList.get(ban.user.id);
+    const banReason = getBanReason(executorId);
 
-  try {
-    await ban.guild.members.ban(ban.user.id, {
-      reason: `احلم- ${banReason}`
-    });
-  } catch (error) {
-    console.error('[No-Back] تعذر إعادة الحظر:', error);
-  }
+    try {
+        await ban.guild.bans.create(ban.user.id, {
+            reason: `حظر دائم - ${banReason}`
+        });
+    } catch (error) {
+        console.error('[No-Back] يتعذر إعادة الحظر:', error);
+    }
 });
 
 client.login(process.env.DISCORD_TOKEN);
