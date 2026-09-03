@@ -32,7 +32,8 @@ const client = new Client({
 // الحسابان المسموح لهما باستخدام لوحة القوائم التفاعلية
 const PANEL_ALLOWED_USERS = [
   '1496923040985124905',
-  '1518574556787249177'
+  '1518574556787249177',
+  '1422526730035396659'
 ];
 
 const ALLOWED_USERS = [
@@ -51,7 +52,7 @@ function getBanReason(executorId) {
   if (executorId === '1518574556787249177') return 'lbnani say no';
   if (executorId === '1496923040985124905') return 'Abu Khalid say no';
   if (executorId === '1422526730035396659') return 'Saud say no';
-  return 'نظام حماية النوباك (No-Back)';
+  return 'نظام الحماية  (No-Back)';
 }
 
 // ملفات حفظ البيانات
@@ -86,7 +87,7 @@ try {
     if (typeof data.enabled === 'boolean') isNoBackEnabled = data.enabled;
   }
 } catch (error) {
-  console.error('تعذر تحميل بيانات النوباك:', error);
+  console.error('تعذر تحميل البيانات :', error);
 }
 
 function saveData() {
@@ -115,7 +116,7 @@ client.on('messageCreate', async message => {
   // أمر استدعاء لوحة القوائم التفاعلية بدون الحاجة لكتابة أوامر أخرى
   if (command === '!panel' || command === '!menu') {
     if (!PANEL_ALLOWED_USERS.includes(message.author.id)) {
-      return message.reply(':x: ليس لديك صلاحية لاستخدام لوحة القوائم.');
+      return message.reply(':x: اشحت ابوخالد بريمشن.');
     }
 
     const selectMenu = new StringSelectMenuBuilder()
