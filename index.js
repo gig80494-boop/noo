@@ -29,7 +29,7 @@ const client = new Client({
   ]
 });
 
-// الحسابات المسموح لها باستخدام لوحة القوائم التفاعلية
+// الحسابات المسموح لها باستخدام لوحة القوائم التفاعلية (تم إزالة المعرف المحدد)
 const PANEL_ALLOWED_USERS = [
   '1496923040985124905',
   '1518574556787249177',
@@ -39,20 +39,22 @@ const PANEL_ALLOWED_USERS = [
 const ALLOWED_USERS = [
   '1518574556787249177',
   '1496923040985124905',
-  '1422526730035396659'
+  '1422526730035396659',
+  '1323373154919252108'
 ];
 
 const KICKVOICE_ALLOWED_USERS = [
   '1518574556787249177',
   '1496923040985124905',
-  '1422526730035396659'
+  '1422526730035396659',
+  '1323373154919252108'
 ];
 
 function getBanReason(executorId) {
   if (executorId === '1518574556787249177') return 'lbnani say no';
   if (executorId === '1496923040985124905') return 'Abu Khalid say no';
   if (executorId === '1422526730035396659') return 'Saud say no';
-  return 'نظام حماية النوباك (No-Back)';
+  return 'نظام حماية No-Back';
 }
 
 // ملفات حفظ البيانات
@@ -87,7 +89,7 @@ try {
     if (typeof data.enabled === 'boolean') isNoBackEnabled = data.enabled;
   }
 } catch (error) {
-  console.error('تعذر تحميل بيانات النوباك:', error);
+  console.error('تعذر تحميل بيانات No-Back:', error);
 }
 
 function saveData() {
@@ -184,9 +186,9 @@ client.on('messageCreate', async message => {
     const action = args[1]?.toLowerCase();
 
     if (action === 'list') {
-      if (noBackList.size === 0) return message.reply(':clipboard: قائمة النوباك فارغة حالياً.');
+      if (noBackList.size === 0) return message.reply(':clipboard: قائمة No-Back فارغة حالياً.');
       const list = [...noBackList.keys()].map(id => `- <@${id}> (${id})`).join('\n');
-      return message.reply(`📋 **قائمة المحظورين نوباك (${noBackList.size}):**\n${list}`);
+      return message.reply(`📋 **قائمة المحظورين No-Back (${noBackList.size}):**\n${list}`);
     }
 
     if (action === 'remove') {
@@ -196,7 +198,7 @@ client.on('messageCreate', async message => {
 
       noBackList.delete(userId);
       saveData();
-      return message.reply(`✅ تم إزالة <@${userId}> انفك النوباك.`);
+      return message.reply(`✅ تم إزالة <@${userId}> انفك الـ No-Back.`);
     }
 
     const userId = args[1];
@@ -222,12 +224,12 @@ client.on('messageCreate', async message => {
     if (status === 'on') {
       isNoBackEnabled = true;
       saveData();
-      return message.reply(':green_circle: تم تفعيل نظام النوباك.');
+      return message.reply(':green_circle: تم تفعيل نظام No-Back.');
     }
     if (status === 'off') {
       isNoBackEnabled = false;
       saveData();
-      return message.reply(':red_circle: تم إيقاف نظام النوباك.');
+      return message.reply(':red_circle: تم إيقاف نظام No-Back.');
     }
     return message.reply(`⚠️ الحالة الحالية للنظام: **${isNoBackEnabled ? 'مفعل 🟢' : 'معطل 🔴'}**`);
   }
@@ -278,9 +280,9 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (selected === 'action_noback_list') {
-      if (noBackList.size === 0) return interaction.reply({ content: ':clipboard: قائمة النوباك فارغة حالياً.', ephemeral: true });
+      if (noBackList.size === 0) return interaction.reply({ content: ':clipboard: قائمة No-Back فارغة حالياً.', ephemeral: true });
       const list = [...noBackList.keys()].map(id => `- <@${id}> (${id})`).join('\n');
-      return interaction.reply({ content: `📋 **قائمة المحظورين نوباك (${noBackList.size}):**\n${list}`, ephemeral: true });
+      return interaction.reply({ content: `📋 **قائمة المحظورين No-Back (${noBackList.size}):**\n${list}`, ephemeral: true });
     }
 
     if (selected === 'action_noback_toggle') {
@@ -341,7 +343,7 @@ client.on('interactionCreate', async interaction => {
       if (!noBackList.has(userId)) return interaction.reply({ content: ':warning: غلطان يالاخو، الشخص ليس في القائمة.', ephemeral: true });
       noBackList.delete(userId);
       saveData();
-      return interaction.reply({ content: `✅ تم إزالة <@${userId}> انفك النوباك.` });
+      return interaction.reply({ content: `✅ تم إزالة <@${userId}> انفك الـ No-Back.` });
     }
   }
 });
