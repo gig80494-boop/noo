@@ -36,14 +36,18 @@ function getBanReason(executorId) {
 }
 
 const dataFile = path.join(__dirname, 'noback.json');
-let noBackList = new Map(); // تم التغيير إلى Map لتخزين (userID => executorID)
+let noBackList = new Map();
 let isNoBackEnabled = true;
 
 try {
   if (fs.existsSync(dataFile)) {
     const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
 
-    if (data.users && typeof data.users === 'object' && !Array.isArray(data.users)) {
+    if (
+      data.users &&
+      typeof data.users === 'object' &&
+      !Array.isArray(data.users)
+    ) {
       noBackList = new Map(Object.entries(data.users));
     } else if (Array.isArray(data.users)) {
       data.users.forEach(id => noBackList.set(id, 'system'));
@@ -93,7 +97,10 @@ client.on('messageCreate', async (message) => {
   const args = message.content.trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
 
-  if (command !== '!noback' && command !== '!noback_protection') {
+  if (
+    command !== '!noback' &&
+    command !== '!noback_protection'
+  ) {
     return;
   }
 
@@ -101,14 +108,16 @@ client.on('messageCreate', async (message) => {
     return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
   }
 
-  // --- معالجة أمر !noback ---
+  // معالجة أمر !noback
   if (command === '!noback') {
     const action = args[1]?.toLowerCase();
 
-    // 1. عرض القائمة
+    // عرض القائمة
     if (action === 'list') {
       if (noBackList.size === 0) {
-        return message.reply(':clipboard: قائمة النوباك فارغة حالياً.');
+        return message.reply(
+          ':clipboard: قائمة النوباك فارغة حالياً.'
+        );
       }
 
       const list = [...noBackList.keys()]
@@ -120,12 +129,14 @@ client.on('messageCreate', async (message) => {
       );
     }
 
-    // 2. إزالة شخص من النوباك
-    if (action === 'removed' || action === 'remove') {
+    // فك النوباك - الأمر الوحيد هو !noback remove
+    if (action === 'remove') {
       const userId = args[2];
 
       if (!/^\d+$/.test(userId || '')) {
-        return message.reply(':warning: يرجى كتابة الـ ID الصحيح.');
+        return message.reply(
+          ':warning: يرجى كتابة الـ ID الصحيح.'
+        );
       }
 
       if (!noBackList.has(userId)) {
@@ -134,10 +145,13 @@ client.on('messageCreate', async (message) => {
 
       noBackList.delete(userId);
       saveData();
-      return message.reply(`✅ تم إزالة <@${userId}> انفك النوباك.`);
+
+      return message.reply(
+        `✅ تم إزالة <@${userId}> انفك النوباك.`
+      );
     }
 
-    // 3. إضافة شخص إلى النوباك وبندته
+    // إضافة شخص إلى النوباك وبندته
     const userId = args[1];
 
     if (!/^\d+$/.test(userId || '')) {
@@ -146,7 +160,7 @@ client.on('messageCreate', async (message) => {
       );
     }
 
-    // حفظ الشخص ومعرفة من اللي عطاه النوباك
+    // حفظ الشخص ومعرفة من أعطاه النوباك
     const executorId = message.author.id;
     const banReason = getBanReason(executorId);
 
@@ -158,29 +172,38 @@ client.on('messageCreate', async (message) => {
         reason: banReason
       });
 
-      return message.reply(`✅ <@${userId}> تم شقه بنجاح.\n📝 السبب: \`${banReason}\``);
+      return message.reply(
+        `✅ <@${userId}> تم شقه بنجاح.\n📝 السبب: \`${banReason}\``
+      );
     } catch (error) {
       console.error(error);
+
       return message.reply(
         `✅ تم إضافة <@${userId}> للقائمة، لكن تعذر تبنيده فوراً (تأكد من وجود البوت فوق رتبته أو تمتعه بصلاحية Ban Members).`
       );
     }
   }
 
-  // --- معالجة أمر !noback_protection ---
+  // معالجة أمر !noback_protection
   if (command === '!noback_protection') {
     const status = args[1]?.toLowerCase();
 
     if (status === 'on') {
       isNoBackEnabled = true;
       saveData();
-      return message.reply(':green_circle: تم تفعيل نظام النوباك.');
+
+      return message.reply(
+        ':green_circle: تم تفعيل نظام النوباك.'
+      );
     }
 
     if (status === 'off') {
       isNoBackEnabled = false;
       saveData();
-      return message.reply(':red_circle: تم إيقاف نظام النوباك.');
+
+      return message.reply(
+        ':red_circle: تم إيقاف نظام النوباك.'
+      );
     }
 
     return message.reply(
@@ -191,21 +214,28 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// إعادة الحظر التلقائي بنفس السبب المخزن للآيدي صاحب الأمر
+// إعادة الحظر التلقائي بنفس السبب المخزن
 client.on('guildBanRemove', async (ban) => {
-    // الخروج إذا كانت الميزة معطلة أو المستخدم ليس ضمن قائمة No-Back
-    if (!isNoBackEnabled || !noBackList.has(ban.user.id)) return;
+  if (
+    !isNoBackEnabled ||
+    !noBackList.has(ban.user.id)
+  ) {
+    return;
+  }
 
-    const executorId = noBackList.get(ban.user.id);
-    const banReason = getBanReason(executorId);
+  const executorId = noBackList.get(ban.user.id);
+  const banReason = getBanReason(executorId);
 
-    try {
-        await ban.guild.bans.create(ban.user.id, {
-            reason: `حظر دائم - ${banReason}`
-        });
-    } catch (error) {
-        console.error('[No-Back] يتعذر إعادة الحظر:', error);
-    }
+  try {
+    await ban.guild.bans.create(ban.user.id, {
+      reason: `حظر دائم - ${banReason}`
+    });
+  } catch (error) {
+    console.error(
+      '[No-Back] يتعذر إعادة الحظر:',
+      error
+    );
+  }
 });
 
 client.login(process.env.DISCORD_TOKEN);
