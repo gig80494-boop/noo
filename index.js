@@ -25,13 +25,15 @@ const client = new Client({
 const ALLOWED_USERS = [
   '1518574556787249177',
   '1496923040985124905',
-  '1422526730035396659'
+  '1422526730035396659',
+  '1323373154919252108'
 ];
 
 const KICKVOICE_ALLOWED_USERS = [
   '1518574556787249177',
   '1496923040985124905',
-  '1422526730035396659'
+  '1422526730035396659',
+  '1323373154919252108'
 ];
 
 function getBanReason(executorId) {
@@ -222,19 +224,12 @@ client.on('messageCreate', async message => {
     );
   }
 
-  if (
-    command !== '!noback' &&
-    command !== '!noback_protection'
-  ) {
-    return;
-  }
-
-  if (!isAllowed(message)) {
-    return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
-  }
-
   // أوامر النوباك
   if (command === '!noback') {
+    if (!isAllowed(message)) {
+      return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
+    }
+
     const action = args[1]?.toLowerCase();
 
     if (action === 'list') {
@@ -307,6 +302,10 @@ client.on('messageCreate', async message => {
 
   // تشغيل أو إيقاف حماية النوباك
   if (command === '!noback_protection') {
+    if (!isAllowed(message)) {
+      return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
+    }
+
     const status = args[1]?.toLowerCase();
 
     if (status === 'on') {
