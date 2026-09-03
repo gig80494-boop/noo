@@ -200,7 +200,7 @@ client.on('guildBanRemove', async (ban) => {
 
   try {
     await ban.guild.members.ban(ban.user.id, {
-      reason: `مايرجع الا من الي بنده- ${banReason}`
+      reason: `احلم- ${banReason}`
     });
   } catch (error) {
     console.error('[No-Back] تعذر إعادة الحظر:', error);
