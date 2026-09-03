@@ -35,7 +35,7 @@ const KICKVOICE_ALLOWED_USERS = [
 ];
 
 function getBanReason(executorId) {
-  if (executorId === '1518574556787249177') return 'lbnani say no';
+  if (executorId === '1518574556787249177') return 'LBnani say no';
   if (executorId === '1496923040985124905') return 'Abu Khalid say no';
   if (executorId === '1422526730035396659') return 'Saud say no';
   return 'نظام حماية النوباك (No-Back)';
