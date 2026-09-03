@@ -125,25 +125,26 @@ client.on('messageCreate', async (message) => {
       const userId = args[2];
 
       if (!/^\d+$/.test(userId || '')) {
-        // 2. إزالة شخص من النوباك
-if (action === 'remove') {
-  const userId = args[2];
+        return message.reply(':warning: يرجى كتابة الـ ID الصحيح.');
+      }
 
-  if (!/^\d+$/.test(userId || '')) {
-    return message.reply(':warning: يرجى كتابة الـ ID الصحيح.');
-  }
+      if (!noBackList.has(userId)) {
+        return message.reply(':warning: غلطان يالاخو.');
+      }
 
-  if (!noBackList.has(userId)) {
-    return message.reply(':warning: غلطان يالاخو.');
-  }
+      noBackList.delete(userId);
+      saveData();
+      return message.reply(`✅ تم إزالة <@${userId}> انفك النوباك.`);
+    }
 
-  noBackList.delete(userId);
-  saveData();
+    // 3. إضافة شخص إلى النوباك وبندته
+    const userId = args[1];
 
-  return message.reply(
-    `✅ تم إزالة <@${userId}> انفك النوباك.`
-  );
-}
+    if (!/^\d+$/.test(userId || '')) {
+      return message.reply(
+        ':warning: يرجى كتابة الـ ID الصحيح للطرف المستهدف.'
+      );
+    }
 
     // حفظ الشخص ومعرفة من اللي عطاه النوباك
     const executorId = message.author.id;
