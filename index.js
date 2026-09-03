@@ -29,7 +29,7 @@ const ALLOWED_USERS = [
 
 // تحديد سبب الحظر المخصص بناءً على ID الشخص الذي أعطى النوباك
 function getBanReason(executorId) {
-  if (executorId === '1518574556787249177') return 'abu say no';
+  if (executorId === '1518574556787249177') return '70vm say no';
   if (executorId === '1496923040985124905') return 'Abu Khalid say no';
   if (executorId === '1422526730035396659') return 'Saud say no';
   return 'نظام حماية النوباك (No-Back)';
