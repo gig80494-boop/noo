@@ -25,13 +25,13 @@ const client = new Client({
 const ALLOWED_USERS = [
   '1518574556787249177',
   '1496923040985124905',
-  '1422526730035396659',
+  '1422526730035396659'
 ];
 
 const KICKVOICE_ALLOWED_USERS = [
   '1518574556787249177',
   '1496923040985124905',
-  '1422526730035396659',
+  '1422526730035396659'
 ];
 
 function getBanReason(executorId) {
@@ -131,6 +131,25 @@ client.on('messageCreate', async message => {
   const args = message.content.trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
 
+  // عرض قائمة الأوامر
+  if (command === '!menu') {
+    return message.reply(
+      `📋 **قائمة الأوامر**
+
+**أوامر النوباك:**
+\`!noback <ID>\` — إضافة شخص إلى النوباك
+\`!noback remove <ID>\` — فك النوباك
+\`!noback list\` — عرض قائمة النوباك
+\`!noback_protection on\` — تشغيل الحماية
+\`!noback_protection off\` — إيقاف الحماية
+
+**أوامر الفويس:**
+\`!kickvoice <ID>\` أو \`!kv <ID>\` — منع الشخص من دخول الفويس
+\`!unkickvoice <ID>\` أو \`!unkv <ID>\` — إزالة المنع
+\`!kvlist\` — عرض قائمة الممنوعين من الفويس`
+    );
+  }
+
   // منع شخص من دخول الرومات الصوتية
   if (command === '!kickvoice' || command === '!kv') {
     if (!isKickVoiceAllowed(message)) {
@@ -222,12 +241,19 @@ client.on('messageCreate', async message => {
     );
   }
 
+  if (
+    command !== '!noback' &&
+    command !== '!noback_protection'
+  ) {
+    return;
+  }
+
+  if (!isAllowed(message)) {
+    return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
+  }
+
   // أوامر النوباك
   if (command === '!noback') {
-    if (!isAllowed(message)) {
-      return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
-    }
-
     const action = args[1]?.toLowerCase();
 
     if (action === 'list') {
@@ -300,10 +326,6 @@ client.on('messageCreate', async message => {
 
   // تشغيل أو إيقاف حماية النوباك
   if (command === '!noback_protection') {
-    if (!isAllowed(message)) {
-      return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
-    }
-
     const status = args[1]?.toLowerCase();
 
     if (status === 'on') {
