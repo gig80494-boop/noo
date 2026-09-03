@@ -29,7 +29,7 @@ const client = new Client({
   ]
 });
 
-// الحسابات المسموح لها باستخدام لوحة القوائم التفاعلية (تم إزالة المعرف المحدد)
+// الحسابات المسموح لها باستخدام لوحة القوائم التفاعلية
 const PANEL_ALLOWED_USERS = [
   '1496923040985124905',
   '1518574556787249177',
@@ -96,6 +96,32 @@ function saveData() {
   fs.writeFileSync(dataFile, JSON.stringify({ enabled: isNoBackEnabled, users: Object.fromEntries(noBackList) }, null, 2), 'utf8');
 }
 
+// دالة إنشاء مصفوفات مكونات لوحة التحكم (القائمة المنسدلة + زر التحديث)
+function createPanelComponents() {
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('panel_select')
+    .setPlaceholder('اختر الإجراء المطلـوب من القائمة...')
+    .addOptions([
+      { label: 'إضافة شخص إلى Black Voice (منع الفويس)', value: 'action_bv_add', emoji: '🎙️' },
+      { label: 'إزالة شخص من Black Voice', value: 'action_bv_remove', emoji: '🔊' },
+      { label: 'عرض قائمة الممنوعين من الفويس', value: 'action_bv_list', emoji: '📋' },
+      { label: 'إضافة شخص إلى نظام No-Back (حظر دائم)', value: 'action_noback_add', emoji: '⛔' },
+      { label: 'إزالة شخص من نظام No-Back', value: 'action_noback_remove', emoji: '🟢' },
+      { label: 'عرض قائمة المحظورين بنظام No-Back', value: 'action_noback_list', emoji: '📜' },
+      { label: 'تغيير حالة حماية No-Back (تشغيل / إيقاف)', value: 'action_noback_toggle', emoji: '⚙️' }
+    ]);
+
+  const refreshButton = new ButtonBuilder()
+    .setCustomId('panel_refresh')
+    .setLabel('تحديث اللوحة 🔄')
+    .setStyle(ButtonStyle.Secondary);
+
+  const row1 = new ActionRowBuilder().addComponents(selectMenu);
+  const row2 = new ActionRowBuilder().addComponents(refreshButton);
+
+  return [row1, row2];
+}
+
 function isAllowed(message) {
   return ALLOWED_USERS.includes(message.author.id) || message.member?.permissions.has(PermissionsBitField.Flags.Administrator);
 }
@@ -115,30 +141,15 @@ client.on('messageCreate', async message => {
   const args = message.content.trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
 
-  // أمر استدعاء لوحة القوائم التفاعلية بدون الحاجة لكتابة أوامر أخرى
+  // أمر استدعاء لوحة القوائم التفاعلية
   if (command === '!panel' || command === '!menu') {
     if (!PANEL_ALLOWED_USERS.includes(message.author.id)) {
       return message.reply(':x: ليس لديك صلاحية لاستخدام لوحة القوائم.');
     }
 
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId('panel_select')
-      .setPlaceholder('اختر الإجراء المطلـوب من القائمة...')
-      .addOptions([
-        { label: 'إضافة شخص إلى Black Voice (منع الفويس)', value: 'action_bv_add', emoji: '🎙️' },
-        { label: 'إزالة شخص من Black Voice', value: 'action_bv_remove', emoji: '🔊' },
-        { label: 'عرض قائمة الممنوعين من الفويس', value: 'action_bv_list', emoji: '📋' },
-        { label: 'إضافة شخص إلى نظام No-Back (حظر دائم)', value: 'action_noback_add', emoji: '⛔' },
-        { label: 'إزالة شخص من نظام No-Back', value: 'action_noback_remove', emoji: '🟢' },
-        { label: 'عرض قائمة المحظورين بنظام No-Back', value: 'action_noback_list', emoji: '📜' },
-        { label: 'تغيير حالة حماية No-Back (تشغيل / إيقاف)', value: 'action_noback_toggle', emoji: '⚙️' }
-      ]);
-
-    const row = new ActionRowBuilder().addComponents(selectMenu);
-
     return message.reply({
       content: '⚙️ **لوحة التحكم التفاعلية بالأوامر:**\nاختر العملية التي تريد تنفيذها دون الحاجة لكتابة أي أمر:',
-      components: [row]
+      components: createPanelComponents()
     });
   }
 
@@ -235,10 +246,18 @@ client.on('messageCreate', async message => {
   }
 });
 
-// التعامل مع اختيارات القائمة المنسدلة والرموز المنبثقة (Interaction handling)
+// التعامل مع اختيارات القائمة المنسدلة، الأزرار، والرموز المنبثقة (Interaction handling)
 client.on('interactionCreate', async interaction => {
   if (!PANEL_ALLOWED_USERS.includes(interaction.user.id)) {
     return interaction.reply({ content: ':x: ليس لديك صلاحية لاستخدام لوحة القوائم.', ephemeral: true });
+  }
+
+  // التفاعل مع زر التحديث
+  if (interaction.isButton() && interaction.customId === 'panel_refresh') {
+    return interaction.update({
+      content: '⚙️ **لوحة التحكم التفاعلية بالأوامر:**\nاختر العملية التي تريد تنفيذها دون الحاجة لكتابة أي أمر:',
+      components: createPanelComponents()
+    });
   }
 
   // التفاعل مع القائمة المنسدلة
