@@ -12,7 +12,8 @@ const {
   TextInputBuilder,
   TextInputStyle,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  AuditLogEvent
 } = require('discord.js');
 
 if (!process.env.DISCORD_TOKEN) {
@@ -29,22 +30,22 @@ const client = new Client({
   ]
 });
 
-// الحسابات المسموح لها باستخدام لوحة القوائم التفاعلية
-const PANEL_ALLOWED_USERS = [
+// قائمة الحسابات المسموح لها (تم تحويلها إلى متغيرات قابلة للتعديل عند التصفير)
+let PANEL_ALLOWED_USERS = [
   '1496923040985124905',
   '1518574556787249177',
   '1422526730035396659',
   '1323373154919252108'
 ];
 
-const ALLOWED_USERS = [
+let ALLOWED_USERS = [
   '1518574556787249177',
   '1496923040985124905',
   '1422526730035396659',
   '1323373154919252108'
 ];
 
-const KICKVOICE_ALLOWED_USERS = [
+let KICKVOICE_ALLOWED_USERS = [
   '1518574556787249177',
   '1496923040985124905',
   '1422526730035396659',
@@ -81,6 +82,9 @@ const dataFile = path.join(__dirname, 'noback.json');
 let noBackList = new Map();
 let isNoBackEnabled = true;
 
+// خريطة لتتبع عدد مرات فك الحظر بواسطة كل إداري { userId: count }
+const unbanViolations = new Map();
+
 try {
   if (fs.existsSync(dataFile)) {
     const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
@@ -116,7 +120,7 @@ client.on('messageCreate', async message => {
   const args = message.content.trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
 
-  // أمر استدعاء لوحة القوائم التفاعلية بدون الحاجة لكتابة أوامر أخرى
+  // أمر استدعاء لوحة القوائم التفاعلية
   if (command === '!panel' || command === '!menu') {
     if (!PANEL_ALLOWED_USERS.includes(message.author.id)) {
       return message.reply(':x: ليس لديك صلاحية لاستخدام لوحة القوائم.');
@@ -143,7 +147,7 @@ client.on('messageCreate', async message => {
     });
   }
 
-  // الأوامر الكتابية العادية المباشرة
+  // الأوامر الكتابية العادية
   if (command === '!blackvoice' || command === '!bv') {
     if (!isKickVoiceAllowed(message)) return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
     const userId = args[1]?.replace(/[<@!>]/g, '');
@@ -236,13 +240,12 @@ client.on('messageCreate', async message => {
   }
 });
 
-// التعامل مع اختيارات القائمة المنسدلة والرموز المنبثقة (Interaction handling)
+// التعامل مع القوائم المنسدلة
 client.on('interactionCreate', async interaction => {
   if (!PANEL_ALLOWED_USERS.includes(interaction.user.id)) {
     return interaction.reply({ content: ':x: ليس لديك صلاحية لاستخدام لوحة القوائم.', ephemeral: true });
   }
 
-  // التفاعل مع القائمة المنسدلة
   if (interaction.isStringSelectMenu() && interaction.customId === 'panel_select') {
     const selected = interaction.values[0];
 
@@ -293,7 +296,6 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  // التفاعل مع الخانات المنبثقة (Modals)
   if (interaction.isModalSubmit()) {
     const rawInput = interaction.fields.getTextInputValue('target_id');
     const userId = rawInput?.replace(/[<@!>]/g, '');
@@ -361,19 +363,50 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
-// إعادة الحظر التلقائي بنفس السبب المخزن
+// إعادة الحظر التلقائي ومعاقبة وتصفير الإداري عند فك الحظر مرتين
 client.on('guildBanRemove', async ban => {
   if (!isNoBackEnabled || !noBackList.has(ban.user.id)) return;
 
-  const executorId = noBackList.get(ban.user.id);
-  const banReason = getBanReason(executorId);
+  const originalExecutorId = noBackList.get(ban.user.id);
+  const banReason = getBanReason(originalExecutorId);
 
+  // إعادة حظر الشخص الممنوع من العودة تلقائياً
   try {
     await ban.guild.bans.create(ban.user.id, {
       reason: `حظر دائم - ${banReason}`
     });
   } catch (error) {
     console.error('[No-Back] يتعذر إعادة الحظر:', error);
+  }
+
+  // البحث عن الإداري الذي قام بفك الحظر من Audit Logs
+  try {
+    const fetchedLogs = await ban.guild.fetchAuditLogs({
+      limit: 1,
+      type: AuditLogEvent.MemberBanRemove
+    });
+    const banLog = fetchedLogs.entries.first();
+
+    if (banLog && banLog.target.id === ban.user.id) {
+      const adminId = banLog.executor.id;
+
+      // زيادات عداد المخالفات للإداري
+      const currentViolations = (unbanViolations.get(adminId) || 0) + 1;
+      unbanViolations.set(adminId, currentViolations);
+
+      console.log(`⚠️ الإداري ${adminId} قام بفك حظر عضو No-Back. عدد المرات: ${currentViolations}`);
+
+      // إذا وصل لمرتين يتم "تصفيره" (سحب جميع صلاحياته من البوت)
+      if (currentViolations >= 2) {
+        PANEL_ALLOWED_USERS = PANEL_ALLOWED_USERS.filter(id => id !== adminId);
+        ALLOWED_USERS = ALLOWED_USERS.filter(id => id !== adminId);
+        KICKVOICE_ALLOWED_USERS = KICKVOICE_ALLOWED_USERS.filter(id => id !== adminId);
+
+        console.log(`🚨 تم تصفير وسحب كافة صلاحيات الإداري (${adminId}) لتجاوزه حد فك حظر No-Back (مرتين).`);
+      }
+    }
+  } catch (err) {
+    console.error('تعذر جلب سجّلات Audit Log لقراءة المسؤول عن فك الحظر:', err);
   }
 });
 
