@@ -26,6 +26,15 @@ try {
   console.error('تعذر تحميل بيانات الممنوعين من الفويس:', error);
 }
 
+function saveVoiceBlockData() {
+  fs.writeFileSync(
+    voiceBlockFile,
+    JSON.stringify([...voiceBlockList], null, 2),
+    'utf8'
+  );
+}
+}
+
 if (!process.env.DISCORD_TOKEN) {
   throw new Error('ضع DISCORD_TOKEN داخل ملف .env');
 }
