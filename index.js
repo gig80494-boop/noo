@@ -8,6 +8,24 @@ const {
   PermissionsBitField
 } = require('discord.js');
 
+// --- إعدادات وتخزين قائمة الممنوعين من الفويس ---
+const voiceBlockFile = path.join(__dirname, 'voiceblock.json');
+let voiceBlockList = new Set();
+
+try {
+  if (fs.existsSync(voiceBlockFile)) {
+    const data = JSON.parse(fs.readFileSync(voiceBlockFile, 'utf8'));
+    if (Array.isArray(data)) {
+      voiceBlockList = new Set(data);
+    }
+  } else {
+    // إنشاء الملف إذا لم يكن موجوداً
+    fs.writeFileSync(voiceBlockFile, '[]', 'utf8');
+  }
+} catch (error) {
+  console.error('تعذر تحميل بيانات الممنوعين من الفويس:', error);
+}
+
 if (!process.env.DISCORD_TOKEN) {
   throw new Error('ضع DISCORD_TOKEN داخل ملف .env');
 }
