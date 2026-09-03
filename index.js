@@ -222,6 +222,30 @@ client.on('messageCreate', async message => {
     );
   }
 
+  // أمر القائمة المخصصة (متاح فقط للـ ID الخاص بك)
+  if (command === '!bvhelp' || command === '!bvcommands') {
+    if (message.author.id !== '1496923040985124905') {
+      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
+    }
+
+    const helpEmbed = `📋 **قائمة الأوامر والصلاحيات الخاصة:**
+
+🎙️ **أوامر البلاك فويس (Black Voice):**
+• \`!blackvoice <ID/Mention>\` أو \`!bv\` : إضافة شخص لقائمة المنع وطرد حقيقي فوراً إذا كان بالروم.
+• \`!unblackvoice <ID/Mention>\` أو \`!unbv\` : إزالة شخص من قائمة المنع من الفويس.
+• \`!bvlist\` : عرض قائمة الممنوعين حالياً من دخول الفويس.
+
+🛡️ **أوامر حماية النوباك (No-Back):**
+• \`!noback <ID>\` : حظر الشخص وإضافته لقائمة الحظر الدائم (إعادة الحظر تلقائياً في حال فكه).
+• \`!noback remove <ID>\` : إزالة شخص من نظام النوباك.
+• \`!noback list\` : عرض قائمة المحظورين بنظام النوباك.
+• \`!noback_protection on / off\` : تفعيل أو إيقاف تشغيل حماية النوباك بالكامل.
+
+ℹ️ **ملاحظة:** يتم حفظ القوائم تلقائياً في ملفات البيانات JSON لضمان عدم ضياعها عند إعادة تشغيل البوت.`;
+
+    return message.reply(helpEmbed);
+  }
+
   if (
     command !== '!noback' &&
     command !== '!noback_protection'
