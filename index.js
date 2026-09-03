@@ -121,7 +121,7 @@ client.on('messageCreate', async (message) => {
     }
 
     // 2. إزالة شخص من النوباك
-    if (action === 'removed' || action === 'remove') {
+    if (action === '!noback removed' || action === 'remove') {
       const userId = args[2];
 
       if (!/^\d+$/.test(userId || '')) {
