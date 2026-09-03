@@ -17,17 +17,25 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildBans,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates
   ]
 });
 
+// قائمة المسموح لهم باستخدام الأوامر العامة
 const ALLOWED_USERS = [
   '1518574556787249177',
   '1496923040985124905',
   '1422526730035396659'
 ];
 
-// تحديد سبب الحظر المخصص بناءً على ID الشخص الذي أعطى النوباك
+// قائمة المسموح لهم حصراً باستخدام أمر kickvoice (محددة بالضبط بالأرقام المطلوب)
+const KICKVOICE_ALLOWED_USERS = [
+  '1518574556787249177',
+  '1496923040985124905',
+  '1422526730035396659'
+];
+
 function getBanReason(executorId) {
   if (executorId === '1518574556787249177') return 'lbnani say no';
   if (executorId === '1496923040985124905') return 'Abu Khalid say no';
@@ -35,8 +43,9 @@ function getBanReason(executorId) {
   return 'نظام حماية النوباك (No-Back)';
 }
 
+// --- إعدادات وتخزين بيانات النوباك ---
 const dataFile = path.join(__dirname, 'noback.json');
-let noBackList = new Map(); // تم التغيير إلى Map لتخزين (userID => executorID)
+let noBackList = new Map();
 let isNoBackEnabled = true;
 
 try {
@@ -74,6 +83,29 @@ function saveData() {
   );
 }
 
+// --- إعدادات وتخزين قائمة الممنوعين من الفويس ---
+const voiceBlockFile = path.join(__dirname, 'voiceblock.json');
+let voiceBlockList = new Set();
+
+try {
+  if (fs.existsSync(voiceBlockFile)) {
+    const data = JSON.parse(fs.readFileSync(voiceBlockFile, 'utf8'));
+    if (Array.isArray(data)) {
+      voiceBlockList = new Set(data);
+    }
+  }
+} catch (error) {
+  console.error('تعذر تحميل بيانات الممنوعين من الفويس:', error);
+}
+
+function saveVoiceBlockData() {
+  fs.writeFileSync(
+    voiceBlockFile,
+    JSON.stringify([...voiceBlockList], null, 2),
+    'utf8'
+  );
+}
+
 function isAllowed(message) {
   return (
     ALLOWED_USERS.includes(message.author.id) ||
@@ -81,6 +113,11 @@ function isAllowed(message) {
       PermissionsBitField.Flags.Administrator
     )
   );
+}
+
+// تحقق خاص لأمر kickvoice حصراً للأشخاص المحددين فقط
+function isKickVoiceAllowed(message) {
+  return KICKVOICE_ALLOWED_USERS.includes(message.author.id);
 }
 
 client.once('ready', () => {
@@ -93,6 +130,79 @@ client.on('messageCreate', async (message) => {
   const args = message.content.trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
 
+  // --- 1. أمر المنع والتأفيك من الفويس (kickvoice / kv) ---
+  if (command === '!kickvoice' || command === '!kv') {
+    // التأكد من أن الشخص من ضمن الأيدي القليلة المحددة حصراً
+    if (!isKickVoiceAllowed(message)) {
+      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
+    }
+
+    const userId = args[1]?.replace(/[<@!>]/g, '');
+
+    if (!/^\d+$/.test(userId || '')) {
+      return message.reply(':warning: يرجى كتابة الـ ID الصحيح أو المنشن. مثال: `!kickvoice 123456789`');
+    }
+
+    if (voiceBlockList.has(userId)) {
+      return message.reply('⚠️ هذا الشخص محظور بالفعل من دخول الرومات الصوتية.');
+    }
+
+    voiceBlockList.add(userId);
+    saveVoiceBlockData();
+
+    // إذا كان الشخص في روم صوتي حالياً يتم إخراجه فوراً
+    try {
+      const member = await message.guild.members.fetch(userId).catch(() => null);
+      if (member && member.voice.channel) {
+        await member.voice.disconnect('ممنوع من دخول الرومات الصوتية (Kick Voice)');
+        return message.reply(`✅ تم طرد <@${userId}> من الفويس وإضافته لقائمة المنع من الدخول.`);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
+    return message.reply(`✅ تم إضافة <@${userId}> لقائمة المنع من الفويس.`);
+  }
+
+  // إزالة شخص من قائمة منع الفويس
+  if (command === '!unkickvoice' || command === '!unkv') {
+    if (!isKickVoiceAllowed(message)) {
+      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
+    }
+
+    const userId = args[1]?.replace(/[<@!>]/g, '');
+
+    if (!/^\d+$/.test(userId || '')) {
+      return message.reply(':warning: يرجى كتابة الـ ID الصحيح.');
+    }
+
+    if (!voiceBlockList.has(userId)) {
+      return message.reply('⚠️ هذا الشخص غير موجود في قائمة المنع من الفويس.');
+    }
+
+    voiceBlockList.delete(userId);
+    saveVoiceBlockData();
+    return message.reply(`✅ تم إزالة <@${userId}> من قائمة المنع ويمكنه الدخول للفويس الآن.`);
+  }
+
+  // عرض قائمة المحظورين من الفويس
+  if (command === '!kvlist') {
+    if (!isKickVoiceAllowed(message)) {
+      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
+    }
+
+    if (voiceBlockList.size === 0) {
+      return message.reply('📋 قائمة الممنوعين من الفويس فارغة حالياً.');
+    }
+
+    const list = [...voiceBlockList]
+      .map(id => `- <@${id}> (${id})`)
+      .join('\n');
+
+    return message.reply(`📋 **قائمة الممنوعين من الفويس (${voiceBlockList.size}):**\n${list}`);
+  }
+
+  // --- 2. الأوامر الأخرى (!noback / !noback_protection) ---
   if (command !== '!noback' && command !== '!noback_protection') {
     return;
   }
@@ -101,11 +211,10 @@ client.on('messageCreate', async (message) => {
     return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
   }
 
-  // --- معالجة أمر !noback ---
+  // معالجة أمر !noback
   if (command === '!noback') {
     const action = args[1]?.toLowerCase();
 
-    // 1. عرض القائمة
     if (action === 'list') {
       if (noBackList.size === 0) {
         return message.reply(':clipboard: قائمة النوباك فارغة حالياً.');
@@ -120,7 +229,6 @@ client.on('messageCreate', async (message) => {
       );
     }
 
-    // 2. إزالة شخص من النوباك
     if (action === 'removed' || action === 'remove') {
       const userId = args[2];
 
@@ -137,7 +245,6 @@ client.on('messageCreate', async (message) => {
       return message.reply(`✅ تم إزالة <@${userId}> انفك النوباك.`);
     }
 
-    // 3. إضافة شخص إلى النوباك وبندته
     const userId = args[1];
 
     if (!/^\d+$/.test(userId || '')) {
@@ -146,7 +253,6 @@ client.on('messageCreate', async (message) => {
       );
     }
 
-    // حفظ الشخص ومعرفة من اللي عطاه النوباك
     const executorId = message.author.id;
     const banReason = getBanReason(executorId);
 
@@ -167,7 +273,7 @@ client.on('messageCreate', async (message) => {
     }
   }
 
-  // --- معالجة أمر !noback_protection ---
+  // معالجة أمر !noback_protection
   if (command === '!noback_protection') {
     const status = args[1]?.toLowerCase();
 
@@ -191,9 +297,20 @@ client.on('messageCreate', async (message) => {
   }
 });
 
+// طرد التلقائي للشخص فور محاولته دخول أي روم صوتي
+client.on('voiceStateUpdate', async (oldState, newState) => {
+  if (newState.channelId && voiceBlockList.has(newState.id)) {
+    try {
+      await newState.disconnect('ممنوع من دخول الرومات الصوتية (Kick Voice)');
+      console.log(`[KickVoice] تم طرد ${newState.id} تلقائياً عند دخوله الروم.`);
+    } catch (error) {
+      console.error(`[KickVoice] تعذر طرد العضو ${newState.id}:`, error);
+    }
+  }
+});
+
 // إعادة الحظر التلقائي بنفس السبب المخزن للآيدي صاحب الأمر
 client.on('guildBanRemove', async (ban) => {
-    // الخروج إذا كانت الميزة معطلة أو المستخدم ليس ضمن قائمة No-Back
     if (!isNoBackEnabled || !noBackList.has(ban.user.id)) return;
 
     const executorId = noBackList.get(ban.user.id);
