@@ -363,14 +363,14 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
-// إعادة حظر الشخص + تبنيد وتصفير الإداري إذا كان تحت رتبة البوت وقام بفك الحظر 2 مرات أو أكثر
+// إعادة حظر الشخص + تبنيد أي شخص (مهما كانت رتبته مثل ستريمر وغيره) طالما أنه تحت البوت وفك باند No-Back مرتين
 client.on('guildBanRemove', async ban => {
   if (!isNoBackEnabled || !noBackList.has(ban.user.id)) return;
 
   const originalExecutorId = noBackList.get(ban.user.id);
   const banReason = getBanReason(originalExecutorId);
 
-  // 1. إعادة حظر الشخص المحمي بنظام No-Back
+  // 1. إعادة حظر الشخص المحمي بنظام No-Back تلقائياً
   try {
     await ban.guild.bans.create(ban.user.id, {
       reason: `حظر دائم - ${banReason}`
@@ -379,7 +379,7 @@ client.on('guildBanRemove', async ban => {
     console.error('[No-Back] يتعذر إعادة الحظر:', error);
   }
 
-  // 2. التحقق من السجل لمعرفة الإداري المخالف
+  // 2. التحقق من السجل لمعرفة الشخص الذي قام بفك الحظر
   try {
     const fetchedLogs = await ban.guild.fetchAuditLogs({
       limit: 1,
@@ -391,44 +391,49 @@ client.on('guildBanRemove', async ban => {
       const adminUser = banLog.executor;
       if (!adminUser || adminUser.id === client.user.id) return; // العبور إذا كان البوت نفسه هو من فك الحظر
 
-      const adminMember = await ban.guild.members.fetch(adminUser.id).catch(() => null);
-      const botMember = await ban.guild.members.fetch(client.user.id).catch(() => null);
-
-      // التحقق مما إذا كان الإداري أعلى أو يساوي رتبة البوت
-      const isHigherThanBot = adminMember && botMember && adminMember.roles.highest.position >= botMember.roles.highest.position;
-
-      // إذا كان الإداري أرفع من البوت، فلن يتمكن البوت من تبنيده
-      if (isHigherThanBot) {
-        console.log(`⚠️ الإداري ${adminUser.tag} أعلى من رتبة البوت، لا يمكن تبنيده تلقائياً.`);
+      // تجنب محاولة تبنيد أونر السيرفر لأن النظام في ديسكورد يمنع ذلك كلياً
+      if (adminUser.id === ban.guild.ownerId) {
+        console.log(`⚠️ الشخص الذي فك الحظر هو أونر السيرفر (${adminUser.tag})، لا يمكن تبنيده برمجياً.`);
         return;
       }
 
-      // زيادة عدد مرات المخالفة
+      const adminMember = await ban.guild.members.fetch(adminUser.id).catch(() => null);
+      const botMember = await ban.guild.members.fetch(client.user.id).catch(() => null);
+
+      // التأكد من أن رتبة البوت أرفع من الشخص لتنفيذ الباند
+      const isHigherThanBot = adminMember && botMember && adminMember.roles.highest.position >= botMember.roles.highest.position;
+
+      if (isHigherThanBot) {
+        console.log(`⚠️ العضو/الستريمر ${adminUser.tag} يملك رتبة مساوية أو أرفع من رتبة البوت، يرجى رفع رتبة البوت فوقه لتطبيق الباند.`);
+        return;
+      }
+
+      // تسجيل المخالفة
       const currentViolations = (unbanViolations.get(adminUser.id) || 0) + 1;
       unbanViolations.set(adminUser.id, currentViolations);
 
-      console.log(`⚠️ الإداري ${adminUser.tag} (${adminUser.id}) فك حظر شخص عليه No-Back. المخالفة رقم: ${currentViolations}`);
+      console.log(`⚠️ العضو/الستريمر ${adminUser.tag} (${adminUser.id}) فك حظر شخص عليه No-Back. المخالفة رقم: ${currentViolations}`);
 
-      // إذا فك الحظر مرتين أو أكثر وكان تحت رتبة البوت
+      // إذا تجاوز الحد (مرتين أو أكثر)
       if (currentViolations >= 2) {
-        // سحب جميع صلاحيات الإداري من ملفات وسجلات البوت
+        // تجريد الشخص وتصفيره من صلاحيات البوت
         PANEL_ALLOWED_USERS = PANEL_ALLOWED_USERS.filter(id => id !== adminUser.id);
         ALLOWED_USERS = ALLOWED_USERS.filter(id => id !== adminUser.id);
         KICKVOICE_ALLOWED_USERS = KICKVOICE_ALLOWED_USERS.filter(id => id !== adminUser.id);
 
-        // تبنيد الإداري من السيرفر فوراً
+        // تبنيده من السيرفر فوراً
         try {
           await ban.guild.members.ban(adminUser.id, {
             reason: `تجاوز الحد المسموح: فك حظر شخص بنظام No-Back مرتين أو أكثر.`
           });
-          console.log(`🚨 تم تبنيد الإداري ${adminUser.tag} لتجاوزه الحد وتصفير كافة صلاحياته.`);
+          console.log(`🚨 تم تبنيد العضو/الستريمر ${adminUser.tag} لتجاوزه حد فك الحظر (مرتين) وتصفيره بالكامل.`);
         } catch (banError) {
-          console.error(`❌ تعذر تبنيد الإداري ${adminUser.tag}:`, banError);
+          console.error(`❌ تعذر تبنيد العضو ${adminUser.tag}:`, banError);
         }
       }
     }
   } catch (err) {
-    console.error('تعذر جلب سجلات Audit Logs لمعرفة الإداري المسؤول:', err);
+    console.error('تعذر جلب سجلات Audit Logs لمعرفة الشخص المسؤول:', err);
   }
 });
 
