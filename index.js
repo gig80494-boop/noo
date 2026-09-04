@@ -50,10 +50,9 @@ const KICKVOICE_ALLOWED_USERS = [
   '1323373154919252108'
 ];
 
-// إعدادات قائمة رتب الستريتر
+// إعدادات قائمة الرتب التي لديها صلاحية Administrator
 const STREETER_GUILD_ID = '1500918222378106901';
 const STREETER_CHANNEL_ID = '1545389147911626772';
-const STREETER_KEYWORD = 'ستريتر';
 const STREETER_MESSAGE_FILE = path.join(__dirname, 'streeter-list.json');
 let streeterListMessageId = null;
 
@@ -84,18 +83,20 @@ function getStreeterRoles(guild) {
     .filter(
       role =>
         !role.managed &&
-        role.name.includes(STREETER_KEYWORD)
+        role.permissions.has(
+          PermissionsBitField.Flags.Administrator
+        )
     )
     .sort((a, b) => b.position - a.position);
 }
 
 function getStreeterListContent(roles) {
   if (roles.length === 0) {
-    return '📋 لا توجد رتب تحتوي على كلمة ستريتر حالياً.';
+    return '📋 لا توجد رتب لديها صلاحية Administrator حالياً.';
   }
 
   return [
-    '📋 **قائمة رتب الستريتر:**',
+    '📋 **قائمة الرتب التي لديها صلاحية Administrator:**',
     ...roles.map(role => `- <@&${role.id}> — ${role.name}`)
   ].join('\n');
 }
@@ -142,7 +143,7 @@ async function updateStreeterList(guild, newRole = null) {
 
   if (newRole) {
     await channel.send({
-      content: `📢 تمت إضافة رتبة ستريتر جديدة إلى القائمة: <@&${newRole.id}>`,
+      content: `📢 تمت إضافة رتبة جديدة بصلاحية Administrator إلى القائمة: <@&${newRole.id}>`,
       allowedMentions: {
         roles: [newRole.id]
       }
@@ -297,17 +298,41 @@ client.once('ready', async () => {
     await guild.roles.fetch();
     await updateStreeterList(guild);
   } catch (error) {
-    console.error('تعذر إرسال قائمة رتب الستريتر:', error);
+    console.error('تعذر إرسال قائمة رتب Administrator:', error);
   }
 });
 
-// تحديث القائمة عند إنشاء رتبة جديدة تحتوي على كلمة ستريتر
+// تحديث القائمة عند إنشاء رتبة جديدة لديها صلاحية Administrator
 client.on('roleCreate', async role => {
   if (
     role.guild.id === STREETER_GUILD_ID &&
-    role.name.includes(STREETER_KEYWORD)
+    role.permissions.has(
+      PermissionsBitField.Flags.Administrator
+    )
   ) {
     await updateStreeterList(role.guild, role);
+  }
+});
+
+// تحديث القائمة إذا تغيّرت صلاحيات رتبة أو تم حذف رتبة
+client.on('roleUpdate', async (oldRole, newRole) => {
+  if (newRole.guild.id !== STREETER_GUILD_ID) return;
+
+  const oldHasAdministrator = oldRole.permissions.has(
+    PermissionsBitField.Flags.Administrator
+  );
+  const newHasAdministrator = newRole.permissions.has(
+    PermissionsBitField.Flags.Administrator
+  );
+
+  if (oldHasAdministrator !== newHasAdministrator) {
+    await updateStreeterList(newRole.guild);
+  }
+});
+
+client.on('roleDelete', async role => {
+  if (role.guild.id === STREETER_GUILD_ID) {
+    await updateStreeterList(role.guild);
   }
 });
 
