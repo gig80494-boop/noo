@@ -50,9 +50,6 @@ const KICKVOICE_ALLOWED_USERS = [
   '1323373154919252108'
 ];
 
-// قائمة الـ Spam Mentions (تخزن معرف الشخص والتايمر الخاص به)
-const activeSpams = new Map();
-
 // إعدادات قائمة الرتب التي لديها صلاحية Administrator
 const STREETER_GUILD_ID = '1500918222378106901';
 const STREETER_CHANNEL_ID = '1545389147911626772';
@@ -227,27 +224,11 @@ function saveData() {
   );
 }
 
-// إنشاء المكونات القائمة التفاعلية بعد إضافة خيارات السبام
 function createPanelComponents() {
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId('panel_select')
     .setPlaceholder('اختر الإجراء المطلـوب من القائمة...')
     .addOptions([
-      {
-        label: 'بدء سبام منشن على شخص (Spam)',
-        value: 'action_spam_add',
-        emoji: '🔥'
-      },
-      {
-        label: 'إيقاف السبام عن شخص (Unspam)',
-        value: 'action_spam_remove',
-        emoji: '🛑'
-      },
-      {
-        label: 'عرض قائمة المزعج عليهم حالياً',
-        value: 'action_spam_list',
-        emoji: '🔔'
-      },
       {
         label: 'إضافة شخص إلى Black Voice (منع الفويس)',
         value: 'action_bv_add',
@@ -309,8 +290,7 @@ function isKickVoiceAllowed(message) {
   return KICKVOICE_ALLOWED_USERS.includes(message.author.id);
 }
 
-// تعديل الحدث هنا لحل المشكلة
-client.once('clientReady', async () => {
+client.once('ready', async () => {
   console.log(`✅ تم تشغيل البوت باسم: ${client.user.tag}`);
 
   try {
@@ -361,73 +341,6 @@ client.on('messageCreate', async message => {
 
   const args = message.content.trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
-
-  // --- أوامر السبام النصية ---
-  if (command === '!spam' || command === '!sp') {
-    if (!isAllowed(message)) {
-      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
-    }
-
-    const userId = args[1]?.replace(/[<@!>]/g, '');
-
-    if (!/^\d+$/.test(userId || '')) {
-      return message.reply(':warning: يرجى تحديد الشخص عن طريق المنشن أو الـ ID.');
-    }
-
-    if (activeSpams.has(userId)) {
-      return message.reply('⚠️ هذا الشخص يتم إزعاجه حالياً بالفعل!');
-    }
-
-    await message.reply(`🔥 بدأ الإزعاج المستمر لـ <@${userId}>...`);
-
-    const interval = setInterval(async () => {
-      try {
-        await message.channel.send(`🔔 <@${userId}> قوم يالطيب!`);
-      } catch (err) {
-        console.error('فشل إرسال رسالة الإزعاج:', err);
-      }
-    }, 1500);
-
-    activeSpams.set(userId, interval);
-    return;
-  }
-
-  if (command === '!unspam' || command === '!unsp') {
-    if (!isAllowed(message)) {
-      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
-    }
-
-    const userId = args[1]?.replace(/[<@!>]/g, '');
-
-    if (!/^\d+$/.test(userId || '')) {
-      return message.reply(':warning: يرجى كتابة الـ ID أو منشن الشخص.');
-    }
-
-    if (!activeSpams.has(userId)) {
-      return message.reply('⚠️ هذا الشخص ليس في قائمة الإزعاج.');
-    }
-
-    clearInterval(activeSpams.get(userId));
-    activeSpams.delete(userId);
-
-    return message.reply(`✅ تم إيقاف الإزعاج عن <@${userId}>.`);
-  }
-
-  if (command === '!spamlist') {
-    if (!isAllowed(message)) {
-      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
-    }
-
-    if (activeSpams.size === 0) {
-      return message.reply('📋 لا يوجد أحد قيد الإزعاج حالياً.');
-    }
-
-    const list = [...activeSpams.keys()]
-      .map(id => `- <@${id}> (${id})`)
-      .join('\n');
-
-    return message.reply(`📋 **قائمة المزعج عليهم حالياً (${activeSpams.size}):**\n${list}`);
-  }
 
   if (command === '!panel' || command === '!menu') {
     if (!PANEL_ALLOWED_USERS.includes(message.author.id)) {
@@ -645,7 +558,6 @@ client.on('messageCreate', async message => {
   }
 });
 
-// التعامل مع التفاعلات (Interactions) الخاصة القائمة التفاعلية (!menu / !panel)
 client.on('interactionCreate', async interaction => {
   if (!PANEL_ALLOWED_USERS.includes(interaction.user.id)) {
     return interaction.reply({
@@ -670,59 +582,6 @@ client.on('interactionCreate', async interaction => {
     interaction.customId === 'panel_select'
   ) {
     const selected = interaction.values[0];
-
-    // خيارات السبام القائمة التفاعلية
-    if (selected === 'action_spam_add') {
-      const modal = new ModalBuilder()
-        .setCustomId('modal_spam_add')
-        .setTitle('بدء سبام منشن على شخص');
-
-      const input = new TextInputBuilder()
-        .setCustomId('target_id')
-        .setLabel('أدخل ID الشخص أو المنشن:')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(input)
-      );
-      return interaction.showModal(modal);
-    }
-
-    if (selected === 'action_spam_remove') {
-      const modal = new ModalBuilder()
-        .setCustomId('modal_spam_remove')
-        .setTitle('إيقاف السبام عن شخص');
-
-      const input = new TextInputBuilder()
-        .setCustomId('target_id')
-        .setLabel('أدخل ID الشخص:')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(input)
-      );
-      return interaction.showModal(modal);
-    }
-
-    if (selected === 'action_spam_list') {
-      if (activeSpams.size === 0) {
-        return interaction.reply({
-          content: '📋 لا يوجد أحد قيد الإزعاج حالياً.',
-          ephemeral: true
-        });
-      }
-
-      const list = [...activeSpams.keys()]
-        .map(id => `- <@${id}> (${id})`)
-        .join('\n');
-
-      return interaction.reply({
-        content: `📋 **قائمة المزعج عليهم حالياً (${activeSpams.size}):**\n${list}`,
-        ephemeral: true
-      });
-    }
 
     if (selected === 'action_bv_add') {
       const modal = new ModalBuilder()
@@ -841,7 +700,6 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  // استقبال البيانات من Modal
   if (interaction.isModalSubmit()) {
     const rawInput = interaction.fields.getTextInputValue('target_id');
     const userId = rawInput?.replace(/[<@!>]/g, '');
@@ -850,46 +708,6 @@ client.on('interactionCreate', async interaction => {
       return interaction.reply({
         content: ':warning: يرجى كتابة الـ ID بشكل صحيح.',
         ephemeral: true
-      });
-    }
-
-    if (interaction.customId === 'modal_spam_add') {
-      if (activeSpams.has(userId)) {
-        return interaction.reply({
-          content: '⚠️ هذا الشخص يتم إزعاجه حالياً بالفعل!',
-          ephemeral: true
-        });
-      }
-
-      await interaction.reply({
-        content: `🔥 بدأ الإزعاج المستمر لـ <@${userId}>...`
-      });
-
-      const interval = setInterval(async () => {
-        try {
-          await interaction.channel.send(`🔔 <@${userId}> قوم يالطيب!`);
-        } catch (err) {
-          console.error('فشل إرسال رسالة الإزعاج:', err);
-        }
-      }, 1500);
-
-      activeSpams.set(userId, interval);
-      return;
-    }
-
-    if (interaction.customId === 'modal_spam_remove') {
-      if (!activeSpams.has(userId)) {
-        return interaction.reply({
-          content: '⚠️ هذا الشخص ليس في قائمة الإزعاج.',
-          ephemeral: true
-        });
-      }
-
-      clearInterval(activeSpams.get(userId));
-      activeSpams.delete(userId);
-
-      return interaction.reply({
-        content: `✅ تم إيقاف الإزعاج عن <@${userId}>.`
       });
     }
 
