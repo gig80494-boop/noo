@@ -29,6 +29,7 @@ const client = new Client({
   ]
 });
 
+// الحسابات المسموح لها باستخدام لوحة القوائم التفاعلية
 const PANEL_ALLOWED_USERS = [
   '1496923040985124905',
   '1518574556787249177',
@@ -49,15 +50,13 @@ const KICKVOICE_ALLOWED_USERS = [
   '1323373154919252108'
 ];
 
+// قائمة الـ Spam Mentions (تخزن معرف الشخص والتايمر الخاص به)
 const activeSpams = new Map();
 
+// إعدادات قائمة الرتب التي لديها صلاحية Administrator
 const STREETER_GUILD_ID = '1500918222378106901';
 const STREETER_CHANNEL_ID = '1545389147911626772';
-const STREETER_MESSAGE_FILE = path.join(
-  __dirname,
-  'streeter-list.json'
-);
-
+const STREETER_MESSAGE_FILE = path.join(__dirname, 'streeter-list.json');
 let streeterListMessageId = null;
 
 try {
@@ -65,7 +64,6 @@ try {
     const data = JSON.parse(
       fs.readFileSync(STREETER_MESSAGE_FILE, 'utf8')
     );
-
     if (typeof data.messageId === 'string') {
       streeterListMessageId = data.messageId;
     }
@@ -80,7 +78,6 @@ function saveStreeterMessageId(messageId) {
     JSON.stringify({ messageId }, null, 2),
     'utf8'
   );
-
   streeterListMessageId = messageId;
 }
 
@@ -115,9 +112,7 @@ async function updateStreeterList(guild, newRole = null) {
     .catch(() => null);
 
   if (!channel || !channel.isTextBased()) {
-    console.error(
-      'روم قائمة الستريتر غير موجود أو ليس رومًا كتابيًا.'
-    );
+    console.error('روم قائمة الستريتر غير موجود أو ليس رومًا كتابيًا.');
     return;
   }
 
@@ -146,7 +141,6 @@ async function updateStreeterList(guild, newRole = null) {
         roles: allowedRoleMentions
       }
     });
-
     saveStreeterMessageId(listMessage.id);
   }
 
@@ -161,45 +155,25 @@ async function updateStreeterList(guild, newRole = null) {
 }
 
 function getBanReason(executorId) {
-  if (executorId === '1518574556787249177') {
-    return 'lbnani say no';
-  }
-
-  if (executorId === '1496923040985124905') {
-    return 'Abu Khalid say no';
-  }
-
-  if (executorId === '1422526730035396659') {
-    return 'Saud say no';
-  }
-
+  if (executorId === '1518574556787249177') return 'lbnani say no';
+  if (executorId === '1496923040985124905') return 'Abu Khalid say no';
+  if (executorId === '1422526730035396659') return 'Saud say no';
   return 'نظام حماية No-Back';
 }
 
-const voiceBlockFile = path.join(
-  __dirname,
-  'voiceblock.json'
-);
-
+// ملفات حفظ البيانات
+const voiceBlockFile = path.join(__dirname, 'voiceblock.json');
 let voiceBlockList = new Set();
 
 try {
   if (fs.existsSync(voiceBlockFile)) {
-    const data = JSON.parse(
-      fs.readFileSync(voiceBlockFile, 'utf8')
-    );
-
-    if (Array.isArray(data)) {
-      voiceBlockList = new Set(data);
-    }
+    const data = JSON.parse(fs.readFileSync(voiceBlockFile, 'utf8'));
+    if (Array.isArray(data)) voiceBlockList = new Set(data);
   } else {
     fs.writeFileSync(voiceBlockFile, '[]', 'utf8');
   }
 } catch (error) {
-  console.error(
-    'تعذر تحميل بيانات الممنوعين من الفويس:',
-    error
-  );
+  console.error('تعذر تحميل بيانات الممنوعين من الفويس:', error);
 }
 
 function saveVoiceBlockData() {
@@ -211,15 +185,12 @@ function saveVoiceBlockData() {
 }
 
 const dataFile = path.join(__dirname, 'noback.json');
-
 let noBackList = new Map();
 let isNoBackEnabled = true;
 
 try {
   if (fs.existsSync(dataFile)) {
-    const data = JSON.parse(
-      fs.readFileSync(dataFile, 'utf8')
-    );
+    const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
 
     if (
       data.users &&
@@ -228,13 +199,9 @@ try {
     ) {
       noBackList = new Map(Object.entries(data.users));
     } else if (Array.isArray(data.users)) {
-      data.users.forEach(id => {
-        noBackList.set(id, 'system');
-      });
+      data.users.forEach(id => noBackList.set(id, 'system'));
     } else if (Array.isArray(data)) {
-      data.forEach(id => {
-        noBackList.set(id, 'system');
-      });
+      data.forEach(id => noBackList.set(id, 'system'));
     }
 
     if (typeof data.enabled === 'boolean') {
@@ -260,6 +227,7 @@ function saveData() {
   );
 }
 
+// إنشاء المكونات القائمة التفاعلية بعد إضافة خيارات السبام
 function createPanelComponents() {
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId('panel_select')
@@ -322,11 +290,8 @@ function createPanelComponents() {
     .setLabel('تحديث اللوحة 🔄')
     .setStyle(ButtonStyle.Secondary);
 
-  const row1 = new ActionRowBuilder()
-    .addComponents(selectMenu);
-
-  const row2 = new ActionRowBuilder()
-    .addComponents(refreshButton);
+  const row1 = new ActionRowBuilder().addComponents(selectMenu);
+  const row2 = new ActionRowBuilder().addComponents(refreshButton);
 
   return [row1, row2];
 }
@@ -344,26 +309,19 @@ function isKickVoiceAllowed(message) {
   return KICKVOICE_ALLOWED_USERS.includes(message.author.id);
 }
 
-client.once('clientReady', async () => {
-  console.log(
-    `✅ تم تشغيل البوت باسم: ${client.user.tag}`
-  );
+client.once('ready', async () => {
+  console.log(`✅ تم تشغيل البوت باسم: ${client.user.tag}`);
 
   try {
-    const guild = await client.guilds.fetch(
-      STREETER_GUILD_ID
-    );
-
+    const guild = await client.guilds.fetch(STREETER_GUILD_ID);
     await guild.roles.fetch();
     await updateStreeterList(guild);
   } catch (error) {
-    console.error(
-      'تعذر إرسال قائمة رتب Administrator:',
-      error
-    );
+    console.error('تعذر إرسال قائمة رتب Administrator:', error);
   }
 });
 
+// تحديث القائمة عند إنشاء رتبة جديدة لديها صلاحية Administrator
 client.on('roleCreate', async role => {
   if (
     role.guild.id === STREETER_GUILD_ID &&
@@ -375,15 +333,13 @@ client.on('roleCreate', async role => {
   }
 });
 
+// تحديث القائمة إذا تغيّرت صلاحيات رتبة أو تم حذف رتبة
 client.on('roleUpdate', async (oldRole, newRole) => {
-  if (newRole.guild.id !== STREETER_GUILD_ID) {
-    return;
-  }
+  if (newRole.guild.id !== STREETER_GUILD_ID) return;
 
   const oldHasAdministrator = oldRole.permissions.has(
     PermissionsBitField.Flags.Administrator
   );
-
   const newHasAdministrator = newRole.permissions.has(
     PermissionsBitField.Flags.Administrator
   );
@@ -400,49 +356,34 @@ client.on('roleDelete', async role => {
 });
 
 client.on('messageCreate', async message => {
-  if (message.author.bot || !message.guild) {
-    return;
-  }
+  if (message.author.bot || !message.guild) return;
 
   const args = message.content.trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
 
-  // أمر !spam يرسل دائماً: قوم يالطيب
+  // --- أوامر السبام النصية ---
   if (command === '!spam' || command === '!sp') {
     if (!isAllowed(message)) {
-      return message.reply(
-        ':x: ليس لديك صلاحية لاستخدام هذا الأمر.'
-      );
+      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
     }
 
     const userId = args[1]?.replace(/[<@!>]/g, '');
 
     if (!/^\d+$/.test(userId || '')) {
-      return message.reply(
-        ':warning: يرجى تحديد الشخص عن طريق المنشن أو الـ ID.'
-      );
+      return message.reply(':warning: يرجى تحديد الشخص عن طريق المنشن أو الـ ID.');
     }
 
     if (activeSpams.has(userId)) {
-      return message.reply(
-        '⚠️ هذا الشخص يتم إزعاجه حالياً بالفعل!'
-      );
+      return message.reply('⚠️ هذا الشخص يتم إزعاجه حالياً بالفعل!');
     }
 
-    await message.reply(
-      `🔥 بدأ الإزعاج المستمر لـ <@${userId}>...`
-    );
+    await message.reply(`🔥 بدأ الإزعاج المستمر لـ <@${userId}>...`);
 
     const interval = setInterval(async () => {
       try {
-        await message.channel.send(
-          `🔔 <@${userId}> قوم يالطيب!`
-        );
+        await message.channel.send(`🔔 <@${userId}> قوم يالطيب!`);
       } catch (err) {
-        console.error(
-          'فشل إرسال رسالة الإزعاج:',
-          err
-        );
+        console.error('فشل إرسال رسالة الإزعاج:', err);
       }
     }, 1500);
 
@@ -452,53 +393,39 @@ client.on('messageCreate', async message => {
 
   if (command === '!unspam' || command === '!unsp') {
     if (!isAllowed(message)) {
-      return message.reply(
-        ':x: ليس لديك صلاحية لاستخدام هذا الأمر.'
-      );
+      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
     }
 
     const userId = args[1]?.replace(/[<@!>]/g, '');
 
     if (!/^\d+$/.test(userId || '')) {
-      return message.reply(
-        ':warning: يرجى كتابة الـ ID أو منشن الشخص.'
-      );
+      return message.reply(':warning: يرجى كتابة الـ ID أو منشن الشخص.');
     }
 
     if (!activeSpams.has(userId)) {
-      return message.reply(
-        '⚠️ هذا الشخص ليس في قائمة الإزعاج.'
-      );
+      return message.reply('⚠️ هذا الشخص ليس في قائمة الإزعاج.');
     }
 
     clearInterval(activeSpams.get(userId));
     activeSpams.delete(userId);
 
-    return message.reply(
-      `✅ تم إيقاف الإزعاج عن <@${userId}>.`
-    );
+    return message.reply(`✅ تم إيقاف الإزعاج عن <@${userId}>.`);
   }
 
   if (command === '!spamlist') {
     if (!isAllowed(message)) {
-      return message.reply(
-        ':x: ليس لديك صلاحية لاستخدام هذا الأمر.'
-      );
+      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
     }
 
     if (activeSpams.size === 0) {
-      return message.reply(
-        '📋 لا يوجد أحد قيد الإزعاج حالياً.'
-      );
+      return message.reply('📋 لا يوجد أحد قيد الإزعاج حالياً.');
     }
 
     const list = [...activeSpams.keys()]
       .map(id => `- <@${id}> (${id})`)
       .join('\n');
 
-    return message.reply(
-      `📋 **قائمة المزعج عليهم حالياً (${activeSpams.size}):**\n${list}`
-    );
+    return message.reply(`📋 **قائمة المزعج عليهم حالياً (${activeSpams.size}):**\n${list}`);
   }
 
   if (command === '!panel' || command === '!menu') {
@@ -554,10 +481,7 @@ client.on('messageCreate', async message => {
         );
       }
     } catch (error) {
-      console.error(
-        '[BlackVoice] تعذر طرد العضو:',
-        error
-      );
+      console.error('[BlackVoice] تعذر طرد العضو:', error);
     }
 
     return message.reply(
@@ -575,9 +499,7 @@ client.on('messageCreate', async message => {
     const userId = args[1]?.replace(/[<@!>]/g, '');
 
     if (!/^\d+$/.test(userId || '')) {
-      return message.reply(
-        ':warning: يرجى كتابة الـ ID الصحيح.'
-      );
+      return message.reply(':warning: يرجى كتابة الـ ID الصحيح.');
     }
 
     if (!voiceBlockList.has(userId)) {
@@ -618,9 +540,7 @@ client.on('messageCreate', async message => {
 
   if (command === '!noback') {
     if (!isAllowed(message)) {
-      return message.reply(
-        ':x: اشحت ابو خالد يعطيك برميشن.'
-      );
+      return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
     }
 
     const action = args[1]?.toLowerCase();
@@ -651,9 +571,7 @@ client.on('messageCreate', async message => {
       }
 
       if (!noBackList.has(userId)) {
-        return message.reply(
-          ':warning: غلطان يالاخو.'
-        );
+        return message.reply(':warning: غلطان يالاخو.');
       }
 
       noBackList.delete(userId);
@@ -690,16 +608,14 @@ client.on('messageCreate', async message => {
       console.error(error);
 
       return message.reply(
-        '✅ تم إضافة الشخص للقائمة، لكن تعذر تبنيده فوراً.'
+        `✅ تم إضافة <@${userId}> للقائمة، لكن تعذر تبنيده فوراً.`
       );
     }
   }
 
   if (command === '!noback_protection') {
     if (!isAllowed(message)) {
-      return message.reply(
-        ':x: اشحت ابو خالد يعطيك برميشن.'
-      );
+      return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
     }
 
     const status = args[1]?.toLowerCase();
@@ -707,7 +623,6 @@ client.on('messageCreate', async message => {
     if (status === 'on') {
       isNoBackEnabled = true;
       saveData();
-
       return message.reply(
         ':green_circle: تم تفعيل نظام No-Back.'
       );
@@ -716,7 +631,6 @@ client.on('messageCreate', async message => {
     if (status === 'off') {
       isNoBackEnabled = false;
       saveData();
-
       return message.reply(
         ':red_circle: تم إيقاف نظام No-Back.'
       );
@@ -730,6 +644,7 @@ client.on('messageCreate', async message => {
   }
 });
 
+// التعامل مع التفاعلات (Interactions) الخاصة القائمة التفاعلية (!menu / !panel)
 client.on('interactionCreate', async interaction => {
   if (!PANEL_ALLOWED_USERS.includes(interaction.user.id)) {
     return interaction.reply({
@@ -755,6 +670,7 @@ client.on('interactionCreate', async interaction => {
   ) {
     const selected = interaction.values[0];
 
+    // خيارات السبام القائمة التفاعلية
     if (selected === 'action_spam_add') {
       const modal = new ModalBuilder()
         .setCustomId('modal_spam_add')
@@ -766,19 +682,9 @@ client.on('interactionCreate', async interaction => {
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
-      const messageInput = new TextInputBuilder()
-        .setCustomId('spam_message')
-        .setLabel('اكتب الرسالة التي تريد تكرارها:')
-        .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder('اكتب كلامك هنا...')
-        .setMaxLength(1900)
-        .setRequired(true);
-
       modal.addComponents(
-        new ActionRowBuilder().addComponents(input),
-        new ActionRowBuilder().addComponents(messageInput)
+        new ActionRowBuilder().addComponents(input)
       );
-
       return interaction.showModal(modal);
     }
 
@@ -796,7 +702,6 @@ client.on('interactionCreate', async interaction => {
       modal.addComponents(
         new ActionRowBuilder().addComponents(input)
       );
-
       return interaction.showModal(modal);
     }
 
@@ -832,7 +737,6 @@ client.on('interactionCreate', async interaction => {
       modal.addComponents(
         new ActionRowBuilder().addComponents(input)
       );
-
       return interaction.showModal(modal);
     }
 
@@ -850,7 +754,6 @@ client.on('interactionCreate', async interaction => {
       modal.addComponents(
         new ActionRowBuilder().addComponents(input)
       );
-
       return interaction.showModal(modal);
     }
 
@@ -886,7 +789,6 @@ client.on('interactionCreate', async interaction => {
       modal.addComponents(
         new ActionRowBuilder().addComponents(input)
       );
-
       return interaction.showModal(modal);
     }
 
@@ -904,7 +806,6 @@ client.on('interactionCreate', async interaction => {
       modal.addComponents(
         new ActionRowBuilder().addComponents(input)
       );
-
       return interaction.showModal(modal);
     }
 
@@ -939,11 +840,9 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
+  // استقبال البيانات من Modal
   if (interaction.isModalSubmit()) {
-    const rawInput = interaction.fields.getTextInputValue(
-      'target_id'
-    );
-
+    const rawInput = interaction.fields.getTextInputValue('target_id');
     const userId = rawInput?.replace(/[<@!>]/g, '');
 
     if (!/^\d+$/.test(userId || '')) {
@@ -954,17 +853,6 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (interaction.customId === 'modal_spam_add') {
-      const spamMessage = interaction.fields
-        .getTextInputValue('spam_message')
-        .trim();
-
-      if (!spamMessage) {
-        return interaction.reply({
-          content: '⚠️ اكتب الرسالة التي تريد تكرارها.',
-          ephemeral: true
-        });
-      }
-
       if (activeSpams.has(userId)) {
         return interaction.reply({
           content: '⚠️ هذا الشخص يتم إزعاجه حالياً بالفعل!',
@@ -973,23 +861,14 @@ client.on('interactionCreate', async interaction => {
       }
 
       await interaction.reply({
-        content:
-          `🔥 بدأ الإزعاج المستمر لـ <@${userId}> بالرسالة التي كتبتها...`
+        content: `🔥 بدأ الإزعاج المستمر لـ <@${userId}>...`
       });
 
       const interval = setInterval(async () => {
         try {
-          await interaction.channel.send({
-            content: `🔔 <@${userId}> ${spamMessage}`,
-            allowedMentions: {
-              users: [userId]
-            }
-          });
+          await interaction.channel.send(`🔔 <@${userId}> قوم يالطيب!`);
         } catch (err) {
-          console.error(
-            'فشل إرسال رسالة الإزعاج:',
-            err
-          );
+          console.error('فشل إرسال رسالة الإزعاج:', err);
         }
       }, 1500);
 
@@ -1016,8 +895,7 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId === 'modal_bv_add') {
       if (voiceBlockList.has(userId)) {
         return interaction.reply({
-          content:
-            '⚠️ هذا الشخص محظور بالفعل من دخول الرومات الصوتية.',
+          content: '⚠️ هذا الشخص محظور بالفعل من دخول الرومات الصوتية.',
           ephemeral: true
         });
       }
@@ -1036,28 +914,22 @@ client.on('interactionCreate', async interaction => {
           );
 
           return interaction.reply({
-            content:
-              `✅ تم طرد <@${userId}> من الفويس وإضافته لقائمة المنع.`
+            content: `✅ تم طرد <@${userId}> من الفويس وإضافته لقائمة المنع.`
           });
         }
       } catch (error) {
-        console.error(
-          '[BlackVoice] تعذر طرد العضو:',
-          error
-        );
+        console.error('[BlackVoice] تعذر طرد العضو:', error);
       }
 
       return interaction.reply({
-        content:
-          `✅ تم إضافة <@${userId}> لقائمة المنع من الفويس.`
+        content: `✅ تم إضافة <@${userId}> لقائمة المنع من الفويس.`
       });
     }
 
     if (interaction.customId === 'modal_bv_remove') {
       if (!voiceBlockList.has(userId)) {
         return interaction.reply({
-          content:
-            '⚠️ هذا الشخص غير موجود في قائمة المنع من الفويس.',
+          content: '⚠️ هذا الشخص غير موجود في قائمة المنع من الفويس.',
           ephemeral: true
         });
       }
@@ -1066,8 +938,7 @@ client.on('interactionCreate', async interaction => {
       saveVoiceBlockData();
 
       return interaction.reply({
-        content:
-          `✅ تم إزالة <@${userId}> من قائمة المنع من الفويس.`
+        content: `✅ تم إزالة <@${userId}> من قائمة المنع من الفويس.`
       });
     }
 
@@ -1084,15 +955,13 @@ client.on('interactionCreate', async interaction => {
         });
 
         return interaction.reply({
-          content:
-            `✅ <@${userId}> تم شقه بنجاح.\n📝 السبب: \`${banReason}\``
+          content: `✅ <@${userId}> تم شقه بنجاح.\n📝 السبب: \`${banReason}\``
         });
       } catch (error) {
         console.error(error);
 
         return interaction.reply({
-          content:
-            '✅ تم إضافة الشخص للقائمة، لكن تعذر تبنيده فوراً.'
+          content: `✅ تم إضافة <@${userId}> للقائمة، لكن تعذر تبنيده فوراً.`
         });
       }
     }
@@ -1100,8 +969,7 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId === 'modal_noback_remove') {
       if (!noBackList.has(userId)) {
         return interaction.reply({
-          content:
-            ':warning: غلطان يالاخو، الشخص ليس في القائمة.',
+          content: ':warning: غلطان يالاخو، الشخص ليس في القائمة.',
           ephemeral: true
         });
       }
@@ -1110,13 +978,13 @@ client.on('interactionCreate', async interaction => {
       saveData();
 
       return interaction.reply({
-        content:
-          `✅ تم إزالة <@${userId}> انفك الـ No-Back.`
+        content: `✅ تم إزالة <@${userId}> انفك الـ No-Back.`
       });
     }
   }
 });
 
+// طرد الشخص تلقائياً عند محاولته دخول روم صوتي
 client.on('voiceStateUpdate', async (oldState, newState) => {
   if (
     newState.channelId &&
@@ -1139,6 +1007,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
+// إعادة الحظر التلقائي بنفس السبب المخزن
 client.on('guildBanRemove', async ban => {
   if (
     !isNoBackEnabled ||
