@@ -29,7 +29,6 @@ const client = new Client({
   ]
 });
 
-// الحسابات المسموح لها باستخدام لوحة القوائم التفاعلية
 const PANEL_ALLOWED_USERS = [
   '1496923040985124905',
   '1518574556787249177',
@@ -50,10 +49,8 @@ const KICKVOICE_ALLOWED_USERS = [
   '1323373154919252108'
 ];
 
-// قائمة السبام
 const activeSpams = new Map();
 
-// إعدادات قائمة الرتب التي لديها صلاحية Administrator
 const STREETER_GUILD_ID = '1500918222378106901';
 const STREETER_CHANNEL_ID = '1545389147911626772';
 const STREETER_MESSAGE_FILE = path.join(
@@ -179,7 +176,6 @@ function getBanReason(executorId) {
   return 'نظام حماية No-Back';
 }
 
-// ملفات حفظ البيانات
 const voiceBlockFile = path.join(
   __dirname,
   'voiceblock.json'
@@ -264,7 +260,6 @@ function saveData() {
   );
 }
 
-// إنشاء مكونات القائمة التفاعلية
 function createPanelComponents() {
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId('panel_select')
@@ -349,7 +344,6 @@ function isKickVoiceAllowed(message) {
   return KICKVOICE_ALLOWED_USERS.includes(message.author.id);
 }
 
-// clientReady بدل ready
 client.once('clientReady', async () => {
   console.log(
     `✅ تم تشغيل البوت باسم: ${client.user.tag}`
@@ -370,7 +364,6 @@ client.once('clientReady', async () => {
   }
 });
 
-// تحديث القائمة عند إنشاء رتبة جديدة
 client.on('roleCreate', async role => {
   if (
     role.guild.id === STREETER_GUILD_ID &&
@@ -382,7 +375,6 @@ client.on('roleCreate', async role => {
   }
 });
 
-// تحديث القائمة عند تغيير صلاحيات رتبة
 client.on('roleUpdate', async (oldRole, newRole) => {
   if (newRole.guild.id !== STREETER_GUILD_ID) {
     return;
@@ -415,8 +407,7 @@ client.on('messageCreate', async message => {
   const args = message.content.trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
 
-  // أمر السبام الكتابي
-  // يبقى يرسل كلمة: قوم يالطيب
+  // أمر !spam يرسل دائماً: قوم يالطيب
   if (command === '!spam' || command === '!sp') {
     if (!isAllowed(message)) {
       return message.reply(
@@ -739,7 +730,6 @@ client.on('messageCreate', async message => {
   }
 });
 
-// التعامل مع التفاعلات الخاصة بالقائمة التفاعلية
 client.on('interactionCreate', async interaction => {
   if (!PANEL_ALLOWED_USERS.includes(interaction.user.id)) {
     return interaction.reply({
@@ -765,7 +755,6 @@ client.on('interactionCreate', async interaction => {
   ) {
     const selected = interaction.values[0];
 
-    // بدء السبام من المنيو مع رسالة مخصصة
     if (selected === 'action_spam_add') {
       const modal = new ModalBuilder()
         .setCustomId('modal_spam_add')
@@ -950,7 +939,6 @@ client.on('interactionCreate', async interaction => {
     }
   }
 
-  // استقبال البيانات من Modal
   if (interaction.isModalSubmit()) {
     const rawInput = interaction.fields.getTextInputValue(
       'target_id'
@@ -965,7 +953,6 @@ client.on('interactionCreate', async interaction => {
       });
     }
 
-    // سبام المنيو يستخدم الرسالة التي كتبها المستخدم
     if (interaction.customId === 'modal_spam_add') {
       const spamMessage = interaction.fields
         .getTextInputValue('spam_message')
@@ -1130,7 +1117,6 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// طرد الشخص تلقائياً عند محاولته دخول روم صوتي
 client.on('voiceStateUpdate', async (oldState, newState) => {
   if (
     newState.channelId &&
@@ -1153,7 +1139,6 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
-// إعادة الحظر التلقائي بنفس السبب المخزن
 client.on('guildBanRemove', async ban => {
   if (
     !isNoBackEnabled ||
