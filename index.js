@@ -12,7 +12,8 @@ const {
   TextInputBuilder,
   TextInputStyle,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  Events
 } = require('discord.js');
 
 if (!process.env.DISCORD_TOKEN) {
@@ -309,7 +310,7 @@ function isKickVoiceAllowed(message) {
   return KICKVOICE_ALLOWED_USERS.includes(message.author.id);
 }
 
-client.once('ready', async () => {
+client.once(Events.ClientReady, async () => {
   console.log(`✅ تم تشغيل البوت باسم: ${client.user.tag}`);
 
   try {
