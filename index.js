@@ -50,13 +50,17 @@ const KICKVOICE_ALLOWED_USERS = [
   '1323373154919252108'
 ];
 
-// قائمة الـ Spam Mentions
+// قائمة السبام
 const activeSpams = new Map();
 
 // إعدادات قائمة الرتب التي لديها صلاحية Administrator
 const STREETER_GUILD_ID = '1500918222378106901';
 const STREETER_CHANNEL_ID = '1545389147911626772';
-const STREETER_MESSAGE_FILE = path.join(__dirname, 'streeter-list.json');
+const STREETER_MESSAGE_FILE = path.join(
+  __dirname,
+  'streeter-list.json'
+);
+
 let streeterListMessageId = null;
 
 try {
@@ -114,7 +118,9 @@ async function updateStreeterList(guild, newRole = null) {
     .catch(() => null);
 
   if (!channel || !channel.isTextBased()) {
-    console.error('روم قائمة الستريتر غير موجود أو ليس رومًا كتابيًا.');
+    console.error(
+      'روم قائمة الستريتر غير موجود أو ليس رومًا كتابيًا.'
+    );
     return;
   }
 
@@ -158,15 +164,27 @@ async function updateStreeterList(guild, newRole = null) {
 }
 
 function getBanReason(executorId) {
-  if (executorId === '1518574556787249177') return 'lbnani say no';
-  if (executorId === '1496923040985124905') return 'Abu Khalid say no';
-  if (executorId === '1422526730035396659') return 'Saud say no';
+  if (executorId === '1518574556787249177') {
+    return 'lbnani say no';
+  }
+
+  if (executorId === '1496923040985124905') {
+    return 'Abu Khalid say no';
+  }
+
+  if (executorId === '1422526730035396659') {
+    return 'Saud say no';
+  }
 
   return 'نظام حماية No-Back';
 }
 
 // ملفات حفظ البيانات
-const voiceBlockFile = path.join(__dirname, 'voiceblock.json');
+const voiceBlockFile = path.join(
+  __dirname,
+  'voiceblock.json'
+);
+
 let voiceBlockList = new Set();
 
 try {
@@ -182,7 +200,10 @@ try {
     fs.writeFileSync(voiceBlockFile, '[]', 'utf8');
   }
 } catch (error) {
-  console.error('تعذر تحميل بيانات الممنوعين من الفويس:', error);
+  console.error(
+    'تعذر تحميل بيانات الممنوعين من الفويس:',
+    error
+  );
 }
 
 function saveVoiceBlockData() {
@@ -194,6 +215,7 @@ function saveVoiceBlockData() {
 }
 
 const dataFile = path.join(__dirname, 'noback.json');
+
 let noBackList = new Map();
 let isNoBackEnabled = true;
 
@@ -210,9 +232,13 @@ try {
     ) {
       noBackList = new Map(Object.entries(data.users));
     } else if (Array.isArray(data.users)) {
-      data.users.forEach(id => noBackList.set(id, 'system'));
+      data.users.forEach(id => {
+        noBackList.set(id, 'system');
+      });
     } else if (Array.isArray(data)) {
-      data.forEach(id => noBackList.set(id, 'system'));
+      data.forEach(id => {
+        noBackList.set(id, 'system');
+      });
     }
 
     if (typeof data.enabled === 'boolean') {
@@ -238,7 +264,7 @@ function saveData() {
   );
 }
 
-// إنشاء المكونات القائمة التفاعلية
+// إنشاء مكونات القائمة التفاعلية
 function createPanelComponents() {
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId('panel_select')
@@ -323,20 +349,28 @@ function isKickVoiceAllowed(message) {
   return KICKVOICE_ALLOWED_USERS.includes(message.author.id);
 }
 
-// تم تغيير ready إلى clientReady فقط
+// clientReady بدل ready
 client.once('clientReady', async () => {
-  console.log(`✅ تم تشغيل البوت باسم: ${client.user.tag}`);
+  console.log(
+    `✅ تم تشغيل البوت باسم: ${client.user.tag}`
+  );
 
   try {
-    const guild = await client.guilds.fetch(STREETER_GUILD_ID);
+    const guild = await client.guilds.fetch(
+      STREETER_GUILD_ID
+    );
+
     await guild.roles.fetch();
     await updateStreeterList(guild);
   } catch (error) {
-    console.error('تعذر إرسال قائمة رتب Administrator:', error);
+    console.error(
+      'تعذر إرسال قائمة رتب Administrator:',
+      error
+    );
   }
 });
 
-// تحديث القائمة عند إنشاء رتبة جديدة لديها صلاحية Administrator
+// تحديث القائمة عند إنشاء رتبة جديدة
 client.on('roleCreate', async role => {
   if (
     role.guild.id === STREETER_GUILD_ID &&
@@ -348,9 +382,11 @@ client.on('roleCreate', async role => {
   }
 });
 
-// تحديث القائمة إذا تغيّرت صلاحيات رتبة
+// تحديث القائمة عند تغيير صلاحيات رتبة
 client.on('roleUpdate', async (oldRole, newRole) => {
-  if (newRole.guild.id !== STREETER_GUILD_ID) return;
+  if (newRole.guild.id !== STREETER_GUILD_ID) {
+    return;
+  }
 
   const oldHasAdministrator = oldRole.permissions.has(
     PermissionsBitField.Flags.Administrator
@@ -372,15 +408,20 @@ client.on('roleDelete', async role => {
 });
 
 client.on('messageCreate', async message => {
-  if (message.author.bot || !message.guild) return;
+  if (message.author.bot || !message.guild) {
+    return;
+  }
 
   const args = message.content.trim().split(/\s+/);
   const command = args[0]?.toLowerCase();
 
-  // أوامر السبام النصية
+  // أمر السبام الكتابي
+  // يبقى يرسل كلمة: قوم يالطيب
   if (command === '!spam' || command === '!sp') {
     if (!isAllowed(message)) {
-      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
+      return message.reply(
+        ':x: ليس لديك صلاحية لاستخدام هذا الأمر.'
+      );
     }
 
     const userId = args[1]?.replace(/[<@!>]/g, '');
@@ -407,7 +448,10 @@ client.on('messageCreate', async message => {
           `🔔 <@${userId}> قوم يالطيب!`
         );
       } catch (err) {
-        console.error('فشل إرسال رسالة الإزعاج:', err);
+        console.error(
+          'فشل إرسال رسالة الإزعاج:',
+          err
+        );
       }
     }, 1500);
 
@@ -417,7 +461,9 @@ client.on('messageCreate', async message => {
 
   if (command === '!unspam' || command === '!unsp') {
     if (!isAllowed(message)) {
-      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
+      return message.reply(
+        ':x: ليس لديك صلاحية لاستخدام هذا الأمر.'
+      );
     }
 
     const userId = args[1]?.replace(/[<@!>]/g, '');
@@ -444,7 +490,9 @@ client.on('messageCreate', async message => {
 
   if (command === '!spamlist') {
     if (!isAllowed(message)) {
-      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
+      return message.reply(
+        ':x: ليس لديك صلاحية لاستخدام هذا الأمر.'
+      );
     }
 
     if (activeSpams.size === 0) {
@@ -515,7 +563,10 @@ client.on('messageCreate', async message => {
         );
       }
     } catch (error) {
-      console.error('[BlackVoice] تعذر طرد العضو:', error);
+      console.error(
+        '[BlackVoice] تعذر طرد العضو:',
+        error
+      );
     }
 
     return message.reply(
@@ -576,7 +627,9 @@ client.on('messageCreate', async message => {
 
   if (command === '!noback') {
     if (!isAllowed(message)) {
-      return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
+      return message.reply(
+        ':x: اشحت ابو خالد يعطيك برميشن.'
+      );
     }
 
     const action = args[1]?.toLowerCase();
@@ -607,7 +660,9 @@ client.on('messageCreate', async message => {
       }
 
       if (!noBackList.has(userId)) {
-        return message.reply(':warning: غلطان يالاخو.');
+        return message.reply(
+          ':warning: غلطان يالاخو.'
+        );
       }
 
       noBackList.delete(userId);
@@ -651,7 +706,9 @@ client.on('messageCreate', async message => {
 
   if (command === '!noback_protection') {
     if (!isAllowed(message)) {
-      return message.reply(':x: اشحت ابو خالد يعطيك برميشن.');
+      return message.reply(
+        ':x: اشحت ابو خالد يعطيك برميشن.'
+      );
     }
 
     const status = args[1]?.toLowerCase();
@@ -708,7 +765,7 @@ client.on('interactionCreate', async interaction => {
   ) {
     const selected = interaction.values[0];
 
-    // خيارات السبام القائمة التفاعلية
+    // بدء السبام من المنيو مع رسالة مخصصة
     if (selected === 'action_spam_add') {
       const modal = new ModalBuilder()
         .setCustomId('modal_spam_add')
@@ -720,8 +777,17 @@ client.on('interactionCreate', async interaction => {
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
+      const messageInput = new TextInputBuilder()
+        .setCustomId('spam_message')
+        .setLabel('اكتب الرسالة التي تريد تكرارها:')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('اكتب كلامك هنا...')
+        .setMaxLength(1900)
+        .setRequired(true);
+
       modal.addComponents(
-        new ActionRowBuilder().addComponents(input)
+        new ActionRowBuilder().addComponents(input),
+        new ActionRowBuilder().addComponents(messageInput)
       );
 
       return interaction.showModal(modal);
@@ -886,7 +952,10 @@ client.on('interactionCreate', async interaction => {
 
   // استقبال البيانات من Modal
   if (interaction.isModalSubmit()) {
-    const rawInput = interaction.fields.getTextInputValue('target_id');
+    const rawInput = interaction.fields.getTextInputValue(
+      'target_id'
+    );
+
     const userId = rawInput?.replace(/[<@!>]/g, '');
 
     if (!/^\d+$/.test(userId || '')) {
@@ -896,7 +965,19 @@ client.on('interactionCreate', async interaction => {
       });
     }
 
+    // سبام المنيو يستخدم الرسالة التي كتبها المستخدم
     if (interaction.customId === 'modal_spam_add') {
+      const spamMessage = interaction.fields
+        .getTextInputValue('spam_message')
+        .trim();
+
+      if (!spamMessage) {
+        return interaction.reply({
+          content: '⚠️ اكتب الرسالة التي تريد تكرارها.',
+          ephemeral: true
+        });
+      }
+
       if (activeSpams.has(userId)) {
         return interaction.reply({
           content: '⚠️ هذا الشخص يتم إزعاجه حالياً بالفعل!',
@@ -905,16 +986,23 @@ client.on('interactionCreate', async interaction => {
       }
 
       await interaction.reply({
-        content: `🔥 بدأ الإزعاج المستمر لـ <@${userId}>...`
+        content:
+          `🔥 بدأ الإزعاج المستمر لـ <@${userId}> بالرسالة التي كتبتها...`
       });
 
       const interval = setInterval(async () => {
         try {
-          await interaction.channel.send(
-            `🔔 <@${userId}> قوم يالطيب!`
-          );
+          await interaction.channel.send({
+            content: `🔔 <@${userId}> ${spamMessage}`,
+            allowedMentions: {
+              users: [userId]
+            }
+          });
         } catch (err) {
-          console.error('فشل إرسال رسالة الإزعاج:', err);
+          console.error(
+            'فشل إرسال رسالة الإزعاج:',
+            err
+          );
         }
       }, 1500);
 
@@ -941,7 +1029,8 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId === 'modal_bv_add') {
       if (voiceBlockList.has(userId)) {
         return interaction.reply({
-          content: '⚠️ هذا الشخص محظور بالفعل من دخول الرومات الصوتية.',
+          content:
+            '⚠️ هذا الشخص محظور بالفعل من دخول الرومات الصوتية.',
           ephemeral: true
         });
       }
@@ -960,7 +1049,8 @@ client.on('interactionCreate', async interaction => {
           );
 
           return interaction.reply({
-            content: `✅ تم طرد <@${userId}> من الفويس وإضافته لقائمة المنع.`
+            content:
+              `✅ تم طرد <@${userId}> من الفويس وإضافته لقائمة المنع.`
           });
         }
       } catch (error) {
@@ -971,14 +1061,16 @@ client.on('interactionCreate', async interaction => {
       }
 
       return interaction.reply({
-        content: `✅ تم إضافة <@${userId}> لقائمة المنع من الفويس.`
+        content:
+          `✅ تم إضافة <@${userId}> لقائمة المنع من الفويس.`
       });
     }
 
     if (interaction.customId === 'modal_bv_remove') {
       if (!voiceBlockList.has(userId)) {
         return interaction.reply({
-          content: '⚠️ هذا الشخص غير موجود في قائمة المنع من الفويس.',
+          content:
+            '⚠️ هذا الشخص غير موجود في قائمة المنع من الفويس.',
           ephemeral: true
         });
       }
@@ -987,7 +1079,8 @@ client.on('interactionCreate', async interaction => {
       saveVoiceBlockData();
 
       return interaction.reply({
-        content: `✅ تم إزالة <@${userId}> من قائمة المنع من الفويس.`
+        content:
+          `✅ تم إزالة <@${userId}> من قائمة المنع من الفويس.`
       });
     }
 
@@ -1004,13 +1097,15 @@ client.on('interactionCreate', async interaction => {
         });
 
         return interaction.reply({
-          content: `✅ <@${userId}> تم شقه بنجاح.\n📝 السبب: \`${banReason}\``
+          content:
+            `✅ <@${userId}> تم شقه بنجاح.\n📝 السبب: \`${banReason}\``
         });
       } catch (error) {
         console.error(error);
 
         return interaction.reply({
-          content: '✅ تم إضافة الشخص للقائمة، لكن تعذر تبنيده فوراً.'
+          content:
+            '✅ تم إضافة الشخص للقائمة، لكن تعذر تبنيده فوراً.'
         });
       }
     }
@@ -1018,7 +1113,8 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId === 'modal_noback_remove') {
       if (!noBackList.has(userId)) {
         return interaction.reply({
-          content: ':warning: غلطان يالاخو، الشخص ليس في القائمة.',
+          content:
+            ':warning: غلطان يالاخو، الشخص ليس في القائمة.',
           ephemeral: true
         });
       }
@@ -1027,7 +1123,8 @@ client.on('interactionCreate', async interaction => {
       saveData();
 
       return interaction.reply({
-        content: `✅ تم إزالة <@${userId}> انفك الـ No-Back.`
+        content:
+          `✅ تم إزالة <@${userId}> انفك الـ No-Back.`
       });
     }
   }
