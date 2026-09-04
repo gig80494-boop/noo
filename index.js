@@ -50,8 +50,39 @@ const KICKVOICE_ALLOWED_USERS = [
   '1323373154919252108'
 ];
 
-// قائمة الـ Spam Mentions (تخزن معرف الشخص والتايمر الخاص به)
+// activeSpams: userId => { interval, channelId, text }
 const activeSpams = new Map();
+const ID_PATTERN = /^\d+$/;
+
+function cleanId(value) {
+  return value?.replace(/[<@!>]/g, '');
+}
+
+function startSpam(userId, channel, text) {
+  const interval = setInterval(async () => {
+    try {
+      if (!channel?.isTextBased()) return;
+
+      await channel.send({
+        content: `<@${userId}> ${text}`,
+        allowedMentions: { users: [userId] }
+      });
+    } catch (error) {
+      console.error('فشل إرسال رسالة السبام:', error);
+    }
+  }, 1500);
+
+  activeSpams.set(userId, { interval, channelId: channel.id, text });
+}
+
+function stopSpam(userId) {
+  const spam = activeSpams.get(userId);
+  if (!spam) return false;
+
+  clearInterval(spam.interval);
+  activeSpams.delete(userId);
+  return true;
+}
 
 // إعدادات قائمة الرتب التي لديها صلاحية Administrator
 const STREETER_GUILD_ID = '1500918222378106901';
@@ -296,6 +327,46 @@ function createPanelComponents() {
   return [row1, row2];
 }
 
+function showIdModal(interaction, customId, title, label) {
+  const input = new TextInputBuilder()
+    .setCustomId('target_id')
+    .setLabel(label)
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  return interaction.showModal(
+    new ModalBuilder()
+      .setCustomId(customId)
+      .setTitle(title)
+      .addComponents(new ActionRowBuilder().addComponents(input))
+  );
+}
+
+function showSpamModal(interaction) {
+  const targetInput = new TextInputBuilder()
+    .setCustomId('target_id')
+    .setLabel('أدخل ID الشخص أو المنشن:')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+  const textInput = new TextInputBuilder()
+    .setCustomId('spam_text')
+    .setLabel('اكتب الرسالة التي تريد تكرارها:')
+    .setPlaceholder('مثال: اطلع الخاص')
+    .setStyle(TextInputStyle.Paragraph)
+    .setMaxLength(1900)
+    .setRequired(true);
+
+  return interaction.showModal(
+    new ModalBuilder()
+      .setCustomId('modal_spam_add')
+      .setTitle('بدء سبام منشن على شخص')
+      .addComponents(
+        new ActionRowBuilder().addComponents(targetInput),
+        new ActionRowBuilder().addComponents(textInput)
+      )
+  );
+}
+
 function isAllowed(message) {
   return (
     ALLOWED_USERS.includes(message.author.id) ||
@@ -367,10 +438,21 @@ client.on('messageCreate', async message => {
       return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
     }
 
-    const userId = args[1]?.replace(/[<@!>]/g, '');
+    const userId = cleanId(args[1]);
+    const spamText = args.slice(2).join(' ').trim();
 
-    if (!/^\d+$/.test(userId || '')) {
+    if (!ID_PATTERN.test(userId || '')) {
       return message.reply(':warning: يرجى تحديد الشخص عن طريق المنشن أو الـ ID.');
+    }
+
+    if (!spamText) {
+      return message.reply(
+        ':warning: اكتب الرسالة بعد الـ ID.\nمثال: `!spam 123456789 الرسالة المطلوبة`'
+      );
+    }
+
+    if (spamText.length > 1900) {
+      return message.reply(':warning: رسالة السبام لا يمكن أن تتجاوز 1900 حرف.');
     }
 
     if (activeSpams.has(userId)) {
@@ -378,16 +460,7 @@ client.on('messageCreate', async message => {
     }
 
     await message.reply(`🔥 بدأ الإزعاج المستمر لـ <@${userId}>...`);
-
-    const interval = setInterval(async () => {
-      try {
-        await message.channel.send(`🔔 <@${userId}> قوم يالطيب!`);
-      } catch (err) {
-        console.error('فشل إرسال رسالة الإزعاج:', err);
-      }
-    }, 1500);
-
-    activeSpams.set(userId, interval);
+    startSpam(userId, message.channel, spamText);
     return;
   }
 
@@ -396,18 +469,15 @@ client.on('messageCreate', async message => {
       return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
     }
 
-    const userId = args[1]?.replace(/[<@!>]/g, '');
+    const userId = cleanId(args[1]);
 
-    if (!/^\d+$/.test(userId || '')) {
+    if (!ID_PATTERN.test(userId || '')) {
       return message.reply(':warning: يرجى كتابة الـ ID أو منشن الشخص.');
     }
 
-    if (!activeSpams.has(userId)) {
+    if (!stopSpam(userId)) {
       return message.reply('⚠️ هذا الشخص ليس في قائمة الإزعاج.');
     }
-
-    clearInterval(activeSpams.get(userId));
-    activeSpams.delete(userId);
 
     return message.reply(`✅ تم إيقاف الإزعاج عن <@${userId}>.`);
   }
@@ -426,6 +496,43 @@ client.on('messageCreate', async message => {
       .join('\n');
 
     return message.reply(`📋 **قائمة المزعج عليهم حالياً (${activeSpams.size}):**\n${list}`);
+  }
+
+  if (command === '!send' || command === '!sendto' || command === '!say') {
+    if (!isAllowed(message)) {
+      return message.reply(':x: ليس لديك صلاحية لاستخدام هذا الأمر.');
+    }
+
+    const channelId = args[1];
+    const content = args.slice(2).join(' ').trim();
+
+    if (!ID_PATTERN.test(channelId || '') || !content) {
+      return message.reply(
+        ':warning: الاستخدام الصحيح: `!send <channel_id> <النص>`'
+      );
+    }
+
+    if (content.length > 2000) {
+      return message.reply(':warning: الرسالة لا يمكن أن تتجاوز 2000 حرف.');
+    }
+
+    const channel = await message.guild.channels.fetch(channelId).catch(() => null);
+    if (!channel?.isTextBased() || typeof channel.send !== 'function') {
+      return message.reply(':warning: لم أجد رومًا كتابيًا بهذا الـ ID.');
+    }
+
+    try {
+      await channel.send({
+        content,
+        allowedMentions: { parse: [] }
+      });
+      return message.reply(`✅ تم إرسال الرسالة إلى الروم <#${channelId}>.`);
+    } catch (error) {
+      console.error('[Send] تعذر إرسال الرسالة:', error);
+      return message.reply(
+        ':x: تعذر الإرسال. تأكد أن البوت يملك صلاحية View Channel و Send Messages.'
+      );
+    }
   }
 
   if (command === '!panel' || command === '!menu') {
@@ -449,9 +556,9 @@ client.on('messageCreate', async message => {
       );
     }
 
-    const userId = args[1]?.replace(/[<@!>]/g, '');
+    const userId = cleanId(args[1]);
 
-    if (!/^\d+$/.test(userId || '')) {
+    if (!ID_PATTERN.test(userId || '')) {
       return message.reply(
         ':warning: يرجى كتابة الـ ID الصحيح أو المنشن.'
       );
@@ -496,9 +603,9 @@ client.on('messageCreate', async message => {
       );
     }
 
-    const userId = args[1]?.replace(/[<@!>]/g, '');
+    const userId = cleanId(args[1]);
 
-    if (!/^\d+$/.test(userId || '')) {
+    if (!ID_PATTERN.test(userId || '')) {
       return message.reply(':warning: يرجى كتابة الـ ID الصحيح.');
     }
 
@@ -564,7 +671,7 @@ client.on('messageCreate', async message => {
     if (action === 'remove') {
       const userId = args[2];
 
-      if (!/^\d+$/.test(userId || '')) {
+      if (!ID_PATTERN.test(userId || '')) {
         return message.reply(
           ':warning: يرجى كتابة الـ ID الصحيح.'
         );
@@ -584,7 +691,7 @@ client.on('messageCreate', async message => {
 
     const userId = args[1];
 
-    if (!/^\d+$/.test(userId || '')) {
+    if (!ID_PATTERN.test(userId || '')) {
       return message.reply(
         ':warning: يرجى كتابة الـ ID الصحيح للطرف المستهدف.'
       );
@@ -672,37 +779,16 @@ client.on('interactionCreate', async interaction => {
 
     // خيارات السبام القائمة التفاعلية
     if (selected === 'action_spam_add') {
-      const modal = new ModalBuilder()
-        .setCustomId('modal_spam_add')
-        .setTitle('بدء سبام منشن على شخص');
-
-      const input = new TextInputBuilder()
-        .setCustomId('target_id')
-        .setLabel('أدخل ID الشخص أو المنشن:')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(input)
-      );
-      return interaction.showModal(modal);
+      return showSpamModal(interaction);
     }
 
     if (selected === 'action_spam_remove') {
-      const modal = new ModalBuilder()
-        .setCustomId('modal_spam_remove')
-        .setTitle('إيقاف السبام عن شخص');
-
-      const input = new TextInputBuilder()
-        .setCustomId('target_id')
-        .setLabel('أدخل ID الشخص:')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(input)
+      return showIdModal(
+        interaction,
+        'modal_spam_remove',
+        'إيقاف السبام عن شخص',
+        'أدخل ID الشخص:'
       );
-      return interaction.showModal(modal);
     }
 
     if (selected === 'action_spam_list') {
@@ -724,37 +810,21 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (selected === 'action_bv_add') {
-      const modal = new ModalBuilder()
-        .setCustomId('modal_bv_add')
-        .setTitle('إضافة شخص إلى Black Voice');
-
-      const input = new TextInputBuilder()
-        .setCustomId('target_id')
-        .setLabel('أدخل ID الشخص أو المنشن:')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(input)
+      return showIdModal(
+        interaction,
+        'modal_bv_add',
+        'إضافة شخص إلى Black Voice',
+        'أدخل ID الشخص أو المنشن:'
       );
-      return interaction.showModal(modal);
     }
 
     if (selected === 'action_bv_remove') {
-      const modal = new ModalBuilder()
-        .setCustomId('modal_bv_remove')
-        .setTitle('إزالة شخص من Black Voice');
-
-      const input = new TextInputBuilder()
-        .setCustomId('target_id')
-        .setLabel('أدخل ID الشخص:')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(input)
+      return showIdModal(
+        interaction,
+        'modal_bv_remove',
+        'إزالة شخص من Black Voice',
+        'أدخل ID الشخص:'
       );
-      return interaction.showModal(modal);
     }
 
     if (selected === 'action_bv_list') {
@@ -776,37 +846,21 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (selected === 'action_noback_add') {
-      const modal = new ModalBuilder()
-        .setCustomId('modal_noback_add')
-        .setTitle('إضافة شخص ونظامه إلى No-Back');
-
-      const input = new TextInputBuilder()
-        .setCustomId('target_id')
-        .setLabel('أدخل ID الشخص المستهدف:')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(input)
+      return showIdModal(
+        interaction,
+        'modal_noback_add',
+        'إضافة شخص ونظامه إلى No-Back',
+        'أدخل ID الشخص المستهدف:'
       );
-      return interaction.showModal(modal);
     }
 
     if (selected === 'action_noback_remove') {
-      const modal = new ModalBuilder()
-        .setCustomId('modal_noback_remove')
-        .setTitle('إزالة شخص من نظام No-Back');
-
-      const input = new TextInputBuilder()
-        .setCustomId('target_id')
-        .setLabel('أدخل ID الشخص:')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(input)
+      return showIdModal(
+        interaction,
+        'modal_noback_remove',
+        'إزالة شخص من نظام No-Back',
+        'أدخل ID الشخص:'
       );
-      return interaction.showModal(modal);
     }
 
     if (selected === 'action_noback_list') {
@@ -843,9 +897,9 @@ client.on('interactionCreate', async interaction => {
   // استقبال البيانات من Modal
   if (interaction.isModalSubmit()) {
     const rawInput = interaction.fields.getTextInputValue('target_id');
-    const userId = rawInput?.replace(/[<@!>]/g, '');
+    const userId = cleanId(rawInput);
 
-    if (!/^\d+$/.test(userId || '')) {
+    if (!ID_PATTERN.test(userId || '')) {
       return interaction.reply({
         content: ':warning: يرجى كتابة الـ ID بشكل صحيح.',
         ephemeral: true
@@ -860,32 +914,42 @@ client.on('interactionCreate', async interaction => {
         });
       }
 
+      const spamText = interaction.fields
+        .getTextInputValue('spam_text')
+        .trim();
+
+      if (!spamText || spamText.length > 1900) {
+        return interaction.reply({
+          content: ':warning: اكتب رسالة صحيحة لا تتجاوز 1900 حرف.',
+          ephemeral: true
+        });
+      }
+
+      const channel = interaction.channel ||
+        await client.channels.fetch(interaction.channelId).catch(() => null);
+
+      if (!channel?.isTextBased()) {
+        return interaction.reply({
+          content: '⚠️ لا يمكن بدء السبام في هذا الروم.',
+          ephemeral: true
+        });
+      }
+
       await interaction.reply({
         content: `🔥 بدأ الإزعاج المستمر لـ <@${userId}>...`
       });
 
-      const interval = setInterval(async () => {
-        try {
-          await interaction.channel.send(`🔔 <@${userId}> قوم يالطيب!`);
-        } catch (err) {
-          console.error('فشل إرسال رسالة الإزعاج:', err);
-        }
-      }, 1500);
-
-      activeSpams.set(userId, interval);
+      startSpam(userId, channel, spamText);
       return;
     }
 
     if (interaction.customId === 'modal_spam_remove') {
-      if (!activeSpams.has(userId)) {
+      if (!stopSpam(userId)) {
         return interaction.reply({
           content: '⚠️ هذا الشخص ليس في قائمة الإزعاج.',
           ephemeral: true
         });
       }
-
-      clearInterval(activeSpams.get(userId));
-      activeSpams.delete(userId);
 
       return interaction.reply({
         content: `✅ تم إيقاف الإزعاج عن <@${userId}>.`
