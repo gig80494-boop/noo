@@ -8,10 +8,10 @@
   },
   "dependencies": {
     "@discordjs/voice": "^0.19.0",
-    "@opusscript": "^0.1.0",
     "discord.js": "^14.27.0",
     "dotenv": "^16.6.1",
+    "opusscript": "^0.0.8",
     "play-dl": "^1.9.7",
-    "sodium-wasm": "^1.1.0"
+    "tweetnacl": "^1.0.3"
   }
 }
