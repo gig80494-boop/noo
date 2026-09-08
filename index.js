@@ -1,6 +1,7 @@
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
+const ffmpeg = require("ffmpeg-static");
 const { 
     Client, 
     GatewayIntentBits, 
@@ -432,16 +433,6 @@ const SLASH_COMMANDS = [
     slashCommand("hide", "إخفاء الكاتجوريات والرومات المحددة"), slashCommand("unhide", "إظهار الكاتجوريات والرومات المحددة")
 ];
 
-const SLASH_PERMISSION_MAP = {
-    "delete-ticket": TICKET_DELETE_USERS, commands: COMMAND_PERMISSION_USERS, deletechannel: CHANNEL_DELETE_USERS,
-    muteall: COMMAND_PERMISSION_USERS, unmuteall: COMMAND_PERMISSION_USERS, moveall: COMMAND_PERMISSION_USERS,
-    jail: [JAIL_ROLE_ID], unjail: [JAIL_ROLE_ID], blackmute: COMMAND_PERMISSION_USERS, unblackmute: COMMAND_PERMISSION_USERS,
-    blackdeafen: COMMAND_PERMISSION_USERS, unblackdeafen: COMMAND_PERMISSION_USERS, spam: COMMAND_PERMISSION_USERS,
-    unspam: COMMAND_PERMISSION_USERS, spamlist: COMMAND_PERMISSION_USERS, send: COMMAND_PERMISSION_USERS,
-    menu: PANEL_USERS, blackvoice: BLACK_VOICE_USERS, unblackvoice: BLACK_VOICE_USERS, bvlist: BLACK_VOICE_USERS,
-    noback: COMMAND_PERMISSION_USERS, noback_protection: COMMAND_PERMISSION_USERS, hide: COMMAND_PERMISSION_USERS, unhide: COMMAND_PERMISSION_USERS
-};
-
 async function registerSlashCommands() {
     try {
         const e = new REST({ version: "10" }).setToken(TOKEN);
@@ -517,19 +508,28 @@ client.on("messageCreate", (async message => {
                 let trackTitle = query;
 
                 if (!/^https?:\/\//i.test(query)) {
-                    const searchRes = await play.search(query, { limit: 1 });
-                    if (!searchRes || !searchRes.length) return message.reply("⚠️ لم أجد أغنية بهذا الاسم.");
+                    const searchRes = await play.search(query, { limit: 1, source: { youtube: "video" } });
+                    if (!searchRes || !searchRes.length) return message.reply("⚠️ لم أجد أغنية بهذا الاسم، حاول وضع رابط الفيديو مباشرة.");
                     trackUrl = searchRes[0].url;
                     trackTitle = searchRes[0].title || query;
                 }
 
-                const connection = joinVoiceChannel({ channelId: voiceChannel.id, guildId: message.guild.id, adapterCreator: message.guild.voiceAdapterCreator, selfDeaf: false });
+                const connection = joinVoiceChannel({
+                    channelId: voiceChannel.id,
+                    guildId: message.guild.id,
+                    adapterCreator: message.guild.voiceAdapterCreator,
+                    selfDeaf: false
+                });
+
                 await entersState(connection, VoiceConnectionStatus.Ready, 30000);
 
                 const stream = await play.stream(trackUrl, { discordPlayerCompatibility: true });
-                const guildMusicPlayer = getGuildMusicPlayer(message.guild.id);
-                const resource = createAudioResource(stream.stream, { inputType: stream.type });
+                const resource = createAudioResource(stream.stream, {
+                    inputType: stream.type,
+                    ffmpegPath: ffmpeg
+                });
 
+                const guildMusicPlayer = getGuildMusicPlayer(message.guild.id);
                 guildMusicPlayer.connection = connection;
                 guildMusicPlayer.player.play(resource);
                 connection.subscribe(guildMusicPlayer.player);
@@ -542,7 +542,7 @@ client.on("messageCreate", (async message => {
                 return message.reply(`▶️ جاري تشغيل: **${trackTitle}**`);
             } catch (e) {
                 console.error("Music Error:", e);
-                return message.reply("❌ تعذر تشغيل الأغنية. تأكد من ثبات الاتصال والمكتبات.");
+                return message.reply("❌ تعذر تشغيل الأغنية. تأكد من ثبات الاتصال والمكتبات أو جرب رابط مباشر.");
             }
         }
     }
