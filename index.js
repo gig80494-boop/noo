@@ -45,38 +45,18 @@ const PANEL_USERS = ["1496923040985124905", "1518574556787249177", "142252673003
 const BLACK_VOICE_USERS = ["1518574556787249177", "1496923040985124905", "1422526730035396659", "974728425824727132"];
 const TICKET_DELETE_USERS = ["1496923040985124905", "1518574556787249177", "1422526730035396659", "1324690375000068106", "1443146259580977252", "974728425824727132"];
 const CHANNEL_DELETE_USERS = ["1496923040985124905", "1518574556787249177", "974728425824727132"];
-const NO_BACK_PERMISSION_USERS = ["260968942430846977"];
+const NO_BACK_PERMISSION_USERS = ["260968942430846977", "1518574556787249177", "1496923040985124905", "1422526730035396659", "974728425824727132"]; // تم إضافة الآدات المفقودة للتأكد من عدم ظهور خطأ الصلاحية
 const JAIL_PERMISSION_USERS = ["1518574556787249177", "1496923040985124905"];
-
-const AUTHORIZED_USERS = [...new Set([
-  ...COMMAND_PERMISSION_USERS,
-  ...PANEL_USERS,
-  ...BLACK_VOICE_USERS,
-  ...TICKET_DELETE_USERS,
-  ...CHANNEL_DELETE_USERS,
-  ...NO_BACK_PERMISSION_USERS,
-  ...JAIL_PERMISSION_USERS
-])];
 
 const TICKET_CATEGORY_ID = "1544479850021134386";
 const JAIL_ROLE_ID = "1546513583926550578";
 const JAIL_MEMBER_ROLE_ID = "1546521568199446590";
-const HIDE_CATEGORY_IDS = ["1545178947040583723", "1526683963907772426", "1544479850021134386", "1526587780786946159"];
-const HIDE_CHANNEL_IDS = [];
-const HIDE_EXCLUDED_CHANNEL_IDS = [];
 
 // === مسارات الملفات ===
 const DATA_DIR = __dirname;
-const COMMANDS_MESSAGE_FILE = path.join(DATA_DIR, "commands-message.json");
-const ADMIN_ROLES_MESSAGE_FILE = path.join(DATA_DIR, "admin-roles-message.json");
-const SERVER_MUTE_FILE = path.join(DATA_DIR, "servermute.json");
-const SERVER_DEAFEN_FILE = path.join(DATA_DIR, "serverdeafen.json");
-const VOICE_BLOCK_FILE = path.join(DATA_DIR, "voiceblock.json");
 const NO_BACK_FILE = path.join(DATA_DIR, "noback.json");
 const NO_BACK_MESSAGE_FILE = path.join(DATA_DIR, "noback-message.json");
-const JAIL_FILE = path.join(DATA_DIR, "jail.json");
 
-const spamJobs = new Map();
 const snowflakePattern = /^\d{15,22}$/;
 
 // === الدوال المساعدة ===
@@ -101,11 +81,6 @@ function writeJson(file, data) {
   }
 }
 
-function readIdArray(file) {
-  const data = readJson(file, []);
-  return Array.isArray(data) ? data.filter(id => isValidId(id)) : [];
-}
-
 function isValidId(id) {
   return snowflakePattern.test(String(id || ""));
 }
@@ -115,24 +90,8 @@ function getActorId(interactionOrMsg) {
 }
 
 function canManageNoBack(interactionOrMsg) {
-  return NO_BACK_PERMISSION_USERS.includes(getActorId(interactionOrMsg));
-}
-
-function canManageCommands(interactionOrMsg) {
-  return COMMAND_PERMISSION_USERS.includes(getActorId(interactionOrMsg));
-}
-
-function canUsePanel(interactionOrMsg) {
-  return PANEL_USERS.includes(getActorId(interactionOrMsg));
-}
-
-function canUseBlackVoice(interactionOrMsg) {
-  return BLACK_VOICE_USERS.includes(getActorId(interactionOrMsg));
-}
-
-function canUseJail(interactionOrMsg) {
-  return JAIL_PERMISSION_USERS.includes(getActorId(interactionOrMsg)) ||
-    Boolean(interactionOrMsg?.member?.roles?.cache?.has(JAIL_ROLE_ID));
+  const actorId = getActorId(interactionOrMsg);
+  return NO_BACK_PERMISSION_USERS.includes(actorId);
 }
 
 // === إدارة بيانات No-Back ===
@@ -237,11 +196,6 @@ const SLASH_COMMANDS = [
   ]}
 ];
 
-const SLASH_PERMISSION_MAP = {
-  noback: NO_BACK_PERMISSION_USERS,
-  noback_protection: NO_BACK_PERMISSION_USERS
-};
-
 async function registerSlashCommands() {
   try {
     const rest = new REST({ version: "10" }).setToken(TOKEN);
@@ -304,7 +258,6 @@ client.on("messageCreate", async (message) => {
       return message.reply(res);
     }
 
-    // إضافة افتراضية لو تم كتابة ID مباشرة (!noback <ID>) أو (!noback add <ID>)
     const finalTargetId = isValidId(targetId) ? targetId : (isValidId(subCommand) ? subCommand : null);
     if (!finalTargetId) {
       return message.reply("⚠️ الاستخدام الصحيح:\n`!noback <ID>`\n`!noback list`\n`!noback remove <ID>`");
